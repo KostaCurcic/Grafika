@@ -6,3 +6,7 @@
 void drawPixel(float x, float y, char *pix);
 
 void InitFrame();
+
+void InitDrawing(char *ptr);
+
+void DrawFrame();

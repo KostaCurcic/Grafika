@@ -8,11 +8,8 @@
 #include "GLInit.h"
 #include "Drawing.h"
 
-#define THRCOUNT 4
-
 GLuint tex;
 char *arr, *tarr;
-int signal = 0;
 
 void initial(WPARAM wParam, LPARAM lParam) {
 
@@ -24,6 +21,8 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, XRES, YRES, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
 	arr = (char*)malloc(XRES * YRES * 3);
+
+	InitDrawing(arr);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -37,13 +36,8 @@ void draw(WPARAM wParam, LPARAM lParam) {
 
 	glBindTexture(GL_TEXTURE_2D, tex);
 
-	while (signal > 0) {
-		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
-	}
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, arr);
-	InitFrame();
-	signal = THRCOUNT;
-	WakeByAddressAll(&signal);
+	DrawFrame();
 
 	glClearColor(1, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -68,35 +62,12 @@ void draw(WPARAM wParam, LPARAM lParam) {
 	glDisable(GL_TEXTURE_2D);
 }
 
-DWORD WINAPI ThreadFunc(void* data) {
-	while (true) {
-		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
-
-		int size = YRES / THRCOUNT;
-
-		int limit = (int)data * size + size;
-
-		for (int i = (int)data * size; i < limit; i++) {
-			for (int j = 0; j < XRES; j++) {
-				drawPixel(j * 2.0f / YRES - XRES / (float)YRES, i * 2.0 / YRES - 1.0, arr + (i * XRES + j) * 3);
-			}
-		}
-		signal--;
-		WakeByAddressSingle(&signal);
-	}
-	return 0;
-}
-
 int main() {
 
 	EVENTFUNC functions[]{
 		EVENTFUNC {WM_PAINT, draw},
 		EVENTFUNC {WM_CREATE, initial},
 	};
-
-	for (int i = 0; i < THRCOUNT; i++) {
-		HANDLE thread = CreateThread(NULL, 0, ThreadFunc, (void*)i, 0, NULL);
-	}
 
 	DoGL(2, functions, 1600, 900);
 }
