@@ -1,5 +1,5 @@
 #include "Drawing.h"
-#include "Ray.h"
+#include "Ray.cuh"
 #include <math.h>
 #include <Windows.h>
 #include <stdio.h>
@@ -12,7 +12,7 @@
 
 #define THRCOUNT 8
 
-Point camera = Point(0, 0, -2.0f);
+//Point camera = Point(0, 0, -2.0f);
 Sphere spheres[SPHC];
 Point lights[LIGHTS];
 float angle = 0;
@@ -29,6 +29,7 @@ void InitFrame()
 	//lights[1] = Point(1000, 0, 0);
 }
 
+/*
 void drawPixel(float x, float y, char *pix) {
 	Point pixelPoint(x, y, 0);
 
@@ -86,6 +87,7 @@ void drawPixel(float x, float y, char *pix) {
 		pix[2] = 240;
 	}
 }
+*/
 
 __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres) {
 	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
@@ -99,6 +101,9 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres) {
 	char *pix = ptr + (yi * XRES + xi) * 3;
 
 	Point pixelPoint(x, y, 0);
+
+	Point camera = Point(0, 0, -2.0f);
+	Vector normal;
 
 	Ray ray = Ray(camera, pixelPoint);
 	Ray shadowRay;
@@ -119,6 +124,7 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres) {
 			for (int j = 0; j < LIGHTS; j++) {
 				shadowRay = Ray(colPoint, lights[j]);
 				sCollided = false;
+				normal = spheres[i].Normal(colPoint);
 				if (spheres[i].Normal(colPoint) * shadowRay.d > 0) {
 					for (int s = 0; s < SPHC; s++) {
 						if (s == i) continue;
@@ -130,9 +136,9 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres) {
 
 
 					if (!sCollided) {
-						pix[0] = 50;
-						pix[1] = 200;
-						pix[2] = 100;
+						pix[0] = 50 * (normal * shadowRay.d);
+						pix[1] = 200 * (normal * shadowRay.d);
+						pix[2] = 100 * (normal * shadowRay.d);
 						lit = true;
 						break;
 					}
@@ -149,9 +155,10 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres) {
 	}
 
 	if (!collided) {
-		pix[0] = 41;
-		pix[1] = 119;
-		pix[2] = 240;
+		pix[0] = 0;
+		pix[1] = 0;
+		pix[2] = 0;
+
 	}
 
 }
