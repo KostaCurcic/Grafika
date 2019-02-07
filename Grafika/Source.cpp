@@ -12,7 +12,7 @@
 
 GLuint tex;
 char *arr;
-int signal;
+int signal = 0;
 
 void initial(WPARAM wParam, LPARAM lParam) {
 
@@ -37,8 +37,12 @@ void draw(WPARAM wParam, LPARAM lParam) {
 
 	glBindTexture(GL_TEXTURE_2D, tex);
 
+	while (signal > 0) {
+		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
+	}
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, arr);
 	InitFrame();
+	signal = THRCOUNT - 1;
 	WakeByAddressAll(&signal);
 
 	glClearColor(1, 0, 0, 0);
@@ -74,9 +78,11 @@ DWORD WINAPI ThreadFunc(void* data) {
 
 		for (int i = (int)data * size; i < limit; i++) {
 			for (int j = 0; j < XRES; j++) {
-				drawPixel(j * 2.0f / XRES - 1.0, i * 2.0 / YRES - 1.0, arr + (i * XRES + j) * 3);
+				drawPixel(j * 2.0f / YRES - XRES / (float)YRES, i * 2.0 / YRES - 1.0, arr + (i * XRES + j) * 3);
 			}
 		}
+		signal--;
+		WakeByAddressSingle(&signal);
 	}
 	return 0;
 }
@@ -92,5 +98,5 @@ int main() {
 		HANDLE thread = CreateThread(NULL, 0, ThreadFunc, (void*)i, 0, NULL);
 	}
 
-	DoGL(2, functions, 1600, 900);
+	DoGL(2, functions, XRES, YRES);
 }

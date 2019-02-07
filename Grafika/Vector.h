@@ -12,6 +12,7 @@ public:
 	Vector& Normalize();
 	float Length() const;
 	float operator*(const Vector&) const;
+	Vector operator*(const float) const;
 
 private:
 

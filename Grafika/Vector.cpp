@@ -42,3 +42,8 @@ float Vector::operator*(const Vector &v) const
 {
 	return x * v.x + y * v.y + z * v.z;
 }
+
+Vector Vector::operator*(const float s) const
+{
+	return Vector(x * s, y * s, z * s);
+}

@@ -11,3 +11,8 @@ Sphere::Sphere(Point C, float R)
 	c = C;
 	r = R;
 }
+
+Vector Sphere::Normal(Point &p) const
+{
+	return ((Vector)(p - c)).Normalize();
+}
