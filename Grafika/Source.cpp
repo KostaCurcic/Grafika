@@ -6,13 +6,11 @@
 #include "OpenGL3.1.h"
 
 #include "GLInit.h"
+#include "Drawing.h"
 
-#define XRES 1600
-#define YRES 900
 #define THRCOUNT 4
 
 GLuint tex;
-char c = 0;
 char *arr;
 int signal;
 
@@ -40,9 +38,8 @@ void draw(WPARAM wParam, LPARAM lParam) {
 	glBindTexture(GL_TEXTURE_2D, tex);
 
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, arr);
+	InitFrame();
 	WakeByAddressAll(&signal);
-
-	c++;
 
 	glClearColor(1, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -50,13 +47,13 @@ void draw(WPARAM wParam, LPARAM lParam) {
 	glEnable(GL_TEXTURE_2D);
 
 	glBegin(GL_QUADS);
-		glTexCoord2f(0, 0);
+		glTexCoord2f(1, 1);
 		glVertex2f(-1, 1);
 
 		glTexCoord2f(1, 0);
 		glVertex2f(-1, -1);
 
-		glTexCoord2f(1, 1);
+		glTexCoord2f(0, 0);
 		glVertex2f(1, -1);
 
 		glTexCoord2f(0, 1);
@@ -65,12 +62,6 @@ void draw(WPARAM wParam, LPARAM lParam) {
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glDisable(GL_TEXTURE_2D);
-}
-
-void drawPixel(int x, int y, char *pix) {
-	pix[0] = c;
-	pix[1] = (XRES - x) / 7;
-	pix[2] = (YRES - y) / 4;
 }
 
 DWORD WINAPI ThreadFunc(void* data) {
@@ -83,7 +74,7 @@ DWORD WINAPI ThreadFunc(void* data) {
 
 		for (int i = (int)data * size; i < limit; i++) {
 			for (int j = 0; j < XRES; j++) {
-				drawPixel(j, i, arr + (i * XRES + j) * 3);
+				drawPixel(j * 2.0f / XRES - 1.0, i * 2.0 / YRES - 1.0, arr + (i * XRES + j) * 3);
 			}
 		}
 	}
