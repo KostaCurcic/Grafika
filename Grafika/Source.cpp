@@ -11,7 +11,7 @@
 #define THRCOUNT 4
 
 GLuint tex;
-char *arr;
+char *arr, *tarr;
 int signal = 0;
 
 void initial(WPARAM wParam, LPARAM lParam) {
@@ -24,11 +24,12 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, XRES, YRES, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
 	arr = (char*)malloc(XRES * YRES * 3);
+	tarr = (char*)malloc(XRES * YRES * 3);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 
 }
@@ -40,9 +41,10 @@ void draw(WPARAM wParam, LPARAM lParam) {
 	while (signal > 0) {
 		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
 	}
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, arr);
+	memcpy(tarr, arr, XRES * YRES * 3);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, tarr);
 	InitFrame();
-	signal = THRCOUNT - 1;
+	signal = THRCOUNT;
 	WakeByAddressAll(&signal);
 
 	glClearColor(1, 0, 0, 0);
@@ -98,5 +100,5 @@ int main() {
 		HANDLE thread = CreateThread(NULL, 0, ThreadFunc, (void*)i, 0, NULL);
 	}
 
-	DoGL(2, functions, XRES, YRES);
+	DoGL(2, functions, 1600, 900);
 }

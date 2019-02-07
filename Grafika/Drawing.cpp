@@ -15,7 +15,7 @@ void InitFrame()
 	spheres[0] = Sphere(Point(sinf(angle) * 3, 0, 10 + cosf(angle) * 3), 1);
 	angle += 0.01;
 	spheres[1] = Sphere(Point(0, -1000, 10), 995);
-	lights[0] = Point(0, 2, 10);
+	lights[0] = Point(2, 2, 10);
 	//lights[1] = Point(1000, 0, 0);
 }
 
@@ -69,15 +69,8 @@ void drawPixel(float x, float y, char *pix) {
 	}
 
 	if (!collided) {
-		if (ray.d.y > 0) {
-			pix[0] = 41;
-			pix[1] = 119;
-			pix[2] = 240;
-		}
-		else {
-			pix[0] = 137;
-			pix[1] = 71;
-			pix[2] = 0;
-		}
+		pix[0] = 41;
+		pix[1] = 119;
+		pix[2] = 240;
 	}
 }
