@@ -24,7 +24,6 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, XRES, YRES, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
 	arr = (char*)malloc(XRES * YRES * 3);
-	tarr = (char*)malloc(XRES * YRES * 3);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -41,8 +40,7 @@ void draw(WPARAM wParam, LPARAM lParam) {
 	while (signal > 0) {
 		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
 	}
-	memcpy(tarr, arr, XRES * YRES * 3);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, tarr);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, arr);
 	InitFrame();
 	signal = THRCOUNT;
 	WakeByAddressAll(&signal);
