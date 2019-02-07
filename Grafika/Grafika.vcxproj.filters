@@ -62,18 +62,6 @@
     <ClInclude Include="Sphere.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Point.cuh">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Vector.cuh">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Sphere.cuh">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Ray.cuh">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Point.h">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -1,5 +1,8 @@
 #include "Drawing.h"
 #include "Ray.h"
+
+#ifndef CUDA
+
 #include <math.h>
 #include <Windows.h>
 
@@ -120,3 +123,5 @@ void DrawFrame()
 		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
 	}
 }
+
+#endif

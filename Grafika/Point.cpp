@@ -1,5 +1,7 @@
 #include "Point.h"
 
+#ifndef CUDA
+
 Point::Point()
 {
 	x = y = z = 0;
@@ -21,3 +23,4 @@ Point Point::operator-(const Point &p) const
 {
 	return Point(x - p.x, y - p.y, z - p.z);
 }
+#endif

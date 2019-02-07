@@ -5,9 +5,9 @@
 class Sphere
 {
 public:
-	Sphere();
-	Sphere(Point C, float R);
-	Vector Normal(Point&) const;
+	DEVICE_PREFIX Sphere();
+	DEVICE_PREFIX Sphere(Point C, float R);
+	DEVICE_PREFIX Vector Normal(Point&) const;
 
 	Point c;
 	float r;

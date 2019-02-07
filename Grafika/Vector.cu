@@ -1,14 +1,17 @@
-#include "Vector.cuh"
+#include "Vector.h"
+
+#ifdef CUDA
+
 #include <math.h>
 
-__host__ __device__ Vector::Vector(const Point &p)
+DEVICE_PREFIX Vector::Vector(const Point &p)
 {
 	x = p.x;
 	y = p.y;
 	z = p.z;
 }
 
-__host__ __device__ Vector& Vector::Unzero()
+DEVICE_PREFIX Vector& Vector::Unzero()
 {
 	if (x == 0.0f) {
 		x = 0.00001f;
@@ -22,7 +25,7 @@ __host__ __device__ Vector& Vector::Unzero()
 	return *this;
 }
 
-__host__ __device__ Vector & Vector::Normalize()
+DEVICE_PREFIX Vector & Vector::Normalize()
 {
 	float sum = Length();
 
@@ -33,17 +36,18 @@ __host__ __device__ Vector & Vector::Normalize()
 	return *this;
 }
 
-__host__ __device__ float Vector::Length() const
+DEVICE_PREFIX float Vector::Length() const
 {
 	return sqrtf(x * x + y * y + z * z);
 }
 
-__host__ __device__ float Vector::operator*(const Vector &v) const
+DEVICE_PREFIX float Vector::operator*(const Vector &v) const
 {
 	return x * v.x + y * v.y + z * v.z;
 }
 
-__host__ __device__ Vector Vector::operator*(const float s) const
+DEVICE_PREFIX Vector Vector::operator*(const float s) const
 {
 	return Vector(x * s, y * s, z * s);
 }
+#endif

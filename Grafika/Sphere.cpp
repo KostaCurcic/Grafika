@@ -1,5 +1,7 @@
 #include "Sphere.h"
 
+#ifndef CUDA
+
 Sphere::Sphere()
 {
 	c = Point(0, 0, 0);
@@ -16,3 +18,5 @@ Vector Sphere::Normal(Point &p) const
 {
 	return ((Vector)(p - c)).Normalize();
 }
+#endif
+

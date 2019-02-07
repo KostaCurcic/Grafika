@@ -1,13 +1,16 @@
-#include "Ray.cuh"
+#include "Ray.h"
+
+#ifdef CUDA
+
 #include <math.h>
 
-__host__ __device__ Ray::Ray()
+DEVICE_PREFIX Ray::Ray()
 {
 	o = Point();
 	d = Vector();
 }
 
-__host__ __device__ Ray::Ray(Point p1, Point p2)
+DEVICE_PREFIX Ray::Ray(Point p1, Point p2)
 {
 	o = p1;
 
@@ -15,13 +18,13 @@ __host__ __device__ Ray::Ray(Point p1, Point p2)
 	d = vec.Normalize();
 }
 
-__host__ __device__ Ray::Ray(Point p1, Vector vec)
+DEVICE_PREFIX Ray::Ray(Point p1, Vector vec)
 {
 	o = p1;
 	d = vec.Normalize();
 }
 
-__host__ __device__ bool Ray::intersects(const Sphere &s, float *c1, float *c2) const
+DEVICE_PREFIX bool Ray::intersects(const Sphere &s, float *c1, float *c2) const
 {
 	float b = 2 * (d * (o - s.c));
 	float c = powf(((Vector)(o - s.c)).Length(), 2) - s.r * s.r;
@@ -46,7 +49,9 @@ __host__ __device__ bool Ray::intersects(const Sphere &s, float *c1, float *c2) 
 	}
 }
 
-__host__ __device__ Point Ray::getPointFromT(float t) const
+DEVICE_PREFIX Point Ray::getPointFromT(float t) const
 {
 	return o + d * t;
 }
+#endif
+

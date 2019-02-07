@@ -1,5 +1,8 @@
 #include "Drawing.h"
-#include "Ray.cuh"
+#include "Ray.h"
+
+#ifdef CUDA
+
 #include <math.h>
 #include <Windows.h>
 #include <stdio.h>
@@ -255,3 +258,4 @@ void DrawFrame()
 		return;
 	}
 }
+#endif

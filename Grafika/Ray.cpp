@@ -1,4 +1,7 @@
 #include "Ray.h"
+
+#ifndef CUDA
+
 #include <math.h>
 
 Ray::Ray()
@@ -50,3 +53,4 @@ Point Ray::getPointFromT(float t) const
 {
 	return o + d * t;
 }
+#endif

@@ -1,4 +1,7 @@
 #include "Vector.h"
+
+#ifndef CUDA
+
 #include <math.h>
 
 Vector::Vector(const Point &p)
@@ -47,3 +50,4 @@ Vector Vector::operator*(const float s) const
 {
 	return Vector(x * s, y * s, z * s);
 }
+#endif
