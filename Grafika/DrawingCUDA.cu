@@ -32,65 +32,6 @@ void InitFrame()
 	//lights[1] = Point(1000, 0, 0);
 }
 
-/*
-void drawPixel(float x, float y, char *pix) {
-	Point pixelPoint(x, y, 0);
-
-	Ray ray = Ray(camera, pixelPoint);
-	Ray shadowRay;
-	bool collided = false, lit = false, sCollided = false;
-
-	float t1, t2;
-	Point colPoint;
-
-	for (int i = 0; i < SPHC; i++) {
-		if (ray.intersects(spheres[i], &t1, &t2)) {
-			if (t1 > t2 && t2 >= 0) {
-				colPoint = ray.getPointFromT(t2);
-			}
-			else {
-				colPoint = ray.getPointFromT(t1);
-			}
-			lit = false;
-			for (int j = 0; j < LIGHTS; j++) {
-				shadowRay = Ray(colPoint, lights[j]);
-				sCollided = false;
-				if (spheres[i].Normal(colPoint) * shadowRay.d > 0) {
-					for (int s = 0; s < SPHC; s++) {
-						if (s == i) continue;
-						if (shadowRay.intersects(spheres[s], nullptr, nullptr)) {
-							sCollided = true;
-							break;
-						}
-					}
-
-
-					if (!sCollided) {
-						pix[0] = 50;
-						pix[1] = 200;
-						pix[2] = 100;
-						lit = true;
-						break;
-					}
-				}
-			}
-			if (!lit) {
-				pix[0] = 0;
-				pix[1] = 0;
-				pix[2] = 0;
-			}
-			collided = true;
-			break;
-		}
-	}
-
-	if (!collided) {
-		pix[0] = 41;
-		pix[1] = 119;
-		pix[2] = 240;
-	}
-}
-*/
 
 __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres) {
 	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
@@ -166,25 +107,6 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres) {
 
 }
 
-/*DWORD WINAPI ThreadFunc(void* data) {
-	while (true) {
-		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
-
-		int size = YRES / THRCOUNT;
-
-		int limit = (int)data * size + size;
-
-		for (int i = (int)data * size; i < limit; i++) {
-			for (int j = 0; j < XRES; j++) {
-				drawPixel(j * 2.0f / YRES - XRES / (float)YRES, i * 2.0 / YRES - 1.0, imgptr + (i * XRES + j) * 3);
-			}
-		}
-		signal--;
-		WakeByAddressSingle(&signal);
-	}
-	return 0;
-}
-*/
 void InitDrawing(char * ptr)
 {
 	imgptr = ptr;

@@ -88,7 +88,7 @@ void drawPixel(float x, float y, char *pix) {
 
 DWORD WINAPI ThreadFunc(void* data) {
 	while (true) {
-		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
+		//WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
 
 		int size = YRES / THRCOUNT;
 
@@ -99,8 +99,8 @@ DWORD WINAPI ThreadFunc(void* data) {
 				drawPixel(j * 2.0f / YRES - XRES / (float)YRES, i * 2.0 / YRES - 1.0, imgptr + (i * XRES + j) * 3);
 			}
 		}
-		signal--;
-		WakeByAddressSingle(&signal);
+		//signal--;
+		//WakeByAddressSingle(&signal);
 	}
 	return 0;
 }
@@ -116,12 +116,12 @@ void InitDrawing(char * ptr)
 void DrawFrame()
 {
 	InitFrame();
-	signal = THRCOUNT;
-	WakeByAddressAll(&signal);
+	//signal = THRCOUNT;
+	//WakeByAddressAll(&signal);
 
-	while (signal > 0) {
+	/*while (signal > 0) {
 		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
-	}
+	}*/
 }
 
 #endif
