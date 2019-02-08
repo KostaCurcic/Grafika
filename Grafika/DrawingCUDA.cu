@@ -28,7 +28,7 @@ Triangle *devTriangles;
 
 void InitFrame()
 {
-	spheres[0] = Sphere(Point(sinf(angle) * 3, 0, 10 + cosf(angle) * 3), 1);
+	spheres[0] = Sphere(Point(sinf(angle) * 3, -2, 10 + cosf(angle) * 3), 1);
 	angle += 0.01;
 	//spheres[1] = Sphere(Point(0, -1000, 10), 995);
 	lights[0] = Point(2, 2, 10);
@@ -83,40 +83,42 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres, Triangl
 
 	Point camera = Point(0, 0, -2.0f);
 	Vector normal;
+	void *obj;
 
 	Ray ray = Ray(camera, pixelPoint);
-	bool collided = false;
 
-	float t1, t2, light;
+	float t1, t2, light, nearest = INFINITY;
 	Point colPoint;
 
 	for (int i = 0; i < SPHC; i++) {
-		if (ray.intersects(spheres[i], &t1, &t2)) {
-			colPoint = ray.getPointFromT(t1);
-			light = pointLit(colPoint, spheres[i].Normal(colPoint), spheres + i, lights, spheres, triangles);
-			pix[0] = 50 * light;
-			pix[1] = 200 * light;
-			pix[2] = 100 * light;
-			collided = true;
-			break;
-		}
-	}
-
-	if (!collided) {
-		for (int i = 0; i < TRIS; i++) {
-			if (ray.intersects(triangles[i], &t1)) {
+		if (ray.intersects(spheres[i], &t1, nullptr)) {
+			if (t1 < nearest) {
+				nearest = t1;
 				colPoint = ray.getPointFromT(t1);
-				light = pointLit(colPoint, triangles[i].n, triangles + i, lights, spheres, triangles);
-				pix[0] = 50 * light;
-				pix[1] = 200 * light;
-				pix[2] = 100 * light;
-				collided = true;
-				break;
+				normal = spheres[i].Normal(colPoint);
+				obj = spheres + i;
 			}
 		}
 	}
 
-	if (!collided) {
+	for (int i = 0; i < TRIS; i++) {
+		if (ray.intersects(triangles[i], &t1)) {
+			if (t1 < nearest) {
+				nearest = t1;
+				colPoint = ray.getPointFromT(t1);
+				normal = triangles[i].n;
+				obj = triangles + i;
+			}
+		}
+	}
+
+	if (nearest < INFINITY) {
+		light = pointLit(colPoint, normal, obj, lights, spheres, triangles);
+		pix[0] = 50 * light;
+		pix[1] = 200 * light;
+		pix[2] = 100 * light;
+	}
+	else{
 		pix[0] = 40;
 		pix[1] = 120;
 		pix[2] = 240;

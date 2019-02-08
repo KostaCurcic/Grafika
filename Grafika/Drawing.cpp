@@ -22,7 +22,7 @@ int signal = 0;
 
 void InitFrame()
 {
-	spheres[0] = Sphere(Point(sinf(angle) * 3, 0, 10 + cosf(angle) * 3), 1);
+	spheres[0] = Sphere(Point(sinf(angle) * 3, -1.5, 10 + cosf(angle) * 3), 1);
 	angle += 0.01;
 	//spheres[1] = Sphere(Point(0, -1000, 10), 995);
 	lights[0] = Point(2, 2, 10);
@@ -66,40 +66,42 @@ void drawPixel(float x, float y, char *pix) {
 
 	Point camera = Point(0, 0, -2.0f);
 	Vector normal;
+	void *obj = nullptr;
 
 	Ray ray = Ray(camera, pixelPoint);
-	bool collided = false;
 
-	float t1, t2, light;
+	float t1, t2, light, nearest = INFINITY;
 	Point colPoint;
 
 	for (int i = 0; i < SPHC; i++) {
-		if (ray.intersects(spheres[i], &t1, &t2)) {
-			colPoint = ray.getPointFromT(t1);
-			light = pointLit(colPoint, spheres[i].Normal(colPoint), spheres + i);
-			pix[0] = 50 * light;
-			pix[1] = 200 * light;
-			pix[2] = 100 * light;
-			collided = true;
-			break;
-		}
-	}
-
-	if (!collided) {
-		for (int i = 0; i < TRIS; i++) {
-			if (ray.intersects(triangles[i], &t1)) {
+		if (ray.intersects(spheres[i], &t1, nullptr)) {
+			if (t1 < nearest) {
+				nearest = t1;
 				colPoint = ray.getPointFromT(t1);
-				light = pointLit(colPoint, triangles[i].n, triangles + i);
-				pix[0] = 50 * light;
-				pix[1] = 200 * light;
-				pix[2] = 100 * light;
-				collided = true;
-				break;
+				normal = spheres[i].Normal(colPoint);
+				obj = spheres + i;
 			}
 		}
 	}
 
-	if (!collided) {
+	for (int i = 0; i < TRIS; i++) {
+		if (ray.intersects(triangles[i], &t1)) {
+			if (t1 < nearest) {
+				nearest = t1;
+				colPoint = ray.getPointFromT(t1);
+				normal = triangles[i].n;
+				obj = triangles + i;
+			}
+		}
+	}
+
+	if (nearest < INFINITY) {
+		light = pointLit(colPoint, normal, obj);
+		pix[0] = 50 * light;
+		pix[1] = 200 * light;
+		pix[2] = 100 * light;
+	}
+	else {
 		pix[0] = 40;
 		pix[1] = 120;
 		pix[2] = 240;
