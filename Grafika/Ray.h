@@ -2,6 +2,7 @@
 
 #include "Vector.h"
 #include "Sphere.h"
+#include "Triangle.h"
 
 
 class Ray
@@ -13,8 +14,11 @@ public:
 
 	//Returns True if intersection bewteen the ray and the sphere happened at least once
 	//float pointers are returns returning t, which can be used to intersection point using getPointFromT
-	//intersection point is only valid if t>0, otherwise conllision happened behind ray
-	DEVICE_PREFIX bool intersects(const Sphere&, float*, float*) const;
+	//first returned t point is always the closer valid one
+	DEVICE_PREFIX bool intersects(const Sphere&, float*, float* = nullptr) const;
+
+	DEVICE_PREFIX bool intersects(const Triangle&, float*) const;
+
 	DEVICE_PREFIX Point getPointFromT(float t) const;
 
 	Point o;

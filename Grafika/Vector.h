@@ -13,6 +13,8 @@ public:
 	DEVICE_PREFIX float Length() const;
 	DEVICE_PREFIX float operator*(const Vector&) const;
 	DEVICE_PREFIX Vector operator*(const float) const;
+	//CrossProduct
+	DEVICE_PREFIX Vector operator%(const Vector&) const;
 
 private:
 
