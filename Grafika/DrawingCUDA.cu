@@ -77,7 +77,7 @@ __device__ float pointLit(Point &p, Vector n, GraphicsObject* self, Point *light
 	return lit;
 }
 
-__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, Sphere *spheres, Triangle *triangles) {
+__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, Sphere *spheres, Triangle *triangles, int iterations = 2) {
 
 	float t1, nearest = INFINITY;
 	bool mirror = false;
@@ -106,8 +106,8 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 		}
 	}
 
-	if (mirror) {
-		return findColPoint(Ray(*colPoint, ray.d.Reflect(*colNormal)), colPoint, colNormal, colObj, spheres, triangles);
+	if (mirror && iterations > 0) {
+		return findColPoint(Ray(*colPoint, ray.d.Reflect(*colNormal)), colPoint, colNormal, colObj, spheres, triangles, iterations - 1);
 	}
 
 	if (nearest < INFINITY) return true;
