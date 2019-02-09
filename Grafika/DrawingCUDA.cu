@@ -29,6 +29,7 @@ Triangle *devTriangles;
 void InitFrame()
 {
 	spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 10 + cosf(angle) * 3), 1);
+	spheres[0].mirror = true;
 	angle += 0.01;
 	//spheres[1] = Sphere(Point(0, -1000, 10), 995);
 	lights[0] = Point(2, 2, 10);
@@ -37,7 +38,7 @@ void InitFrame()
 	//lights[1] = Point(1000, 0, 0);
 }
 
-__device__ float pointLit(Point &p, Vector n, void* self, Point *lights, Sphere *spheres, Triangle *triangles) {
+__device__ float pointLit(Point &p, Vector n, GraphicsObject* self, Point *lights, Sphere *spheres, Triangle *triangles) {
 	Ray ray;
 	float lit = 0, t;
 	bool col;
@@ -67,7 +68,7 @@ __device__ float pointLit(Point &p, Vector n, void* self, Point *lights, Sphere 
 	return lit;
 }
 
-__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, void **colObj, Sphere *spheres, Triangle *triangles) {
+__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, Sphere *spheres, Triangle *triangles) {
 
 	float t1, nearest = INFINITY;
 	bool mirror = false;
@@ -79,7 +80,7 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, void *
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = spheres[i].Normal(*colPoint);
 				*colObj = spheres + i;
-				mirror = true;
+				mirror = spheres[i].mirror;
 			}
 		}
 	}
@@ -91,7 +92,7 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, void *
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = triangles[i].n;
 				*colObj = triangles + i;
-				mirror = false;
+				mirror = triangles[i].mirror;
 			}
 		}
 	}
@@ -120,7 +121,7 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres, Triangl
 
 	Point camera = Point(0, 0, -2.0f);
 	Vector normal;
-	void *obj;
+	GraphicsObject *obj;
 
 	Ray ray = Ray(camera, pixelPoint);
 
@@ -130,9 +131,9 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres, Triangl
 
 	if (findColPoint(ray, &colPoint, &normal, &obj, spheres, triangles)) {
 		light = pointLit(colPoint, normal, obj, lights, spheres, triangles);
-		pix[0] = 50 * light;
-		pix[1] = 200 * light;
-		pix[2] = 100 * light;
+		pix[0] = obj->r * light;
+		pix[1] = obj->g * light;
+		pix[2] = obj->b * light;
 	}
 	else{
 		pix[0] = 40;

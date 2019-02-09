@@ -7,20 +7,26 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Grafika", "Grafika\Grafika.
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		CUDA|x64 = CUDA|x64
+		CUDA|x86 = CUDA|x86
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.CUDA|x64.ActiveCfg = CUDA|x64
+		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.CUDA|x64.Build.0 = CUDA|x64
+		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.CUDA|x86.ActiveCfg = CUDA|x64
+		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.CUDA|x86.Build.0 = CUDA|x64
 		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Debug|x64.ActiveCfg = Debug|x64
 		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Debug|x64.Build.0 = Debug|x64
 		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Debug|x86.ActiveCfg = Debug|Win32
 		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Debug|x86.Build.0 = Debug|Win32
 		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Release|x64.ActiveCfg = Release|x64
 		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Release|x64.Build.0 = Release|x64
-		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Release|x86.ActiveCfg = Release|Win32
-		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Release|x86.Build.0 = Release|Win32
+		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Release|x86.ActiveCfg = Release|x64
+		{4D745BF5-020A-4C91-B3F5-61CE11457CDE}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -2,16 +2,18 @@
 
 #ifndef CUDA
 
-Sphere::Sphere()
+DEVICE_PREFIX Sphere::Sphere()
 {
 	c = Point(0, 0, 0);
 	r = 0;
+	shape = SPHERE;
 }
 
-Sphere::Sphere(Point C, float R)
+DEVICE_PREFIX Sphere::Sphere(Point C, float R)
 {
 	c = C;
 	r = R;
+	shape = SPHERE;
 }
 
 Vector Sphere::Normal(Point &p) const

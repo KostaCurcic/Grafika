@@ -2,14 +2,18 @@
 
 #ifndef CUDA
 
-Triangle::Triangle() {}
+DEVICE_PREFIX Triangle::Triangle()
+{
+	shape = TRIANGLE;
+}
 
-Triangle::Triangle(Point ver1, Point ver2, Point ver3)
+DEVICE_PREFIX Triangle::Triangle(Point ver1, Point ver2, Point ver3)
 {
 	v0 = ver1;
 	v1 = ver2;
 	v2 = ver3;
 	calcVectors();
+	shape = TRIANGLE;
 }
 
 /*
@@ -63,6 +67,11 @@ void Triangle::calcVectors()
 	e2.Normalize();
 
 	n = (e0 % e1).Normalize();
+}
+
+Vector Triangle::Normal(Point &) const
+{
+	return n;
 }
 
 #endif

@@ -1,12 +1,14 @@
 #pragma once
 
 #include "Vector.h"
+#include "GraphicsObject.h"
 
-class Triangle
+class Triangle : public GraphicsObject
 {
 public:
 	DEVICE_PREFIX Triangle();
 	DEVICE_PREFIX Triangle(Point, Point, Point);
+	DEVICE_PREFIX Vector Normal(Point&) const;
 
 	/*DEVICE_PREFIX Point V0() const;
 	DEVICE_PREFIX Point V1() const;

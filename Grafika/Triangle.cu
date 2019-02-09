@@ -2,7 +2,10 @@
 
 #ifdef CUDA
 
-DEVICE_PREFIX Triangle::Triangle() {}
+DEVICE_PREFIX Triangle::Triangle() 
+{
+	shape = TRIANGLE;
+}
 
 DEVICE_PREFIX Triangle::Triangle(Point ver1, Point ver2, Point ver3)
 {
@@ -10,6 +13,12 @@ DEVICE_PREFIX Triangle::Triangle(Point ver1, Point ver2, Point ver3)
 	v1 = ver2;
 	v2 = ver3;
 	calcVectors();
+	shape = TRIANGLE;
+}
+
+DEVICE_PREFIX Vector Triangle::Normal(Point &) const
+{
+	return n;
 }
 
 /*

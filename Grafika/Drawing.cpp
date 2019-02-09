@@ -31,7 +31,7 @@ void InitFrame()
 	//lights[1] = Point(1000, 0, 0);
 }
 
-float pointLit(Point &p, Vector n, void* self) {
+float pointLit(Point &p, Vector n, GraphicsObject* self) {
 	Ray ray;
 	float lit = 0, t;
 	bool col;
@@ -61,7 +61,7 @@ float pointLit(Point &p, Vector n, void* self) {
 	return lit;
 }
 
-bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, void **colObj) {
+bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj) {
 
 	float t1, nearest = INFINITY;
 	bool mirror = false;
@@ -73,7 +73,7 @@ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, void **colObj) {
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = spheres[i].Normal(*colPoint);
 				*colObj = spheres + i;
-				mirror = true;
+				mirror = spheres[i].mirror;
 			}
 		}
 	}
@@ -85,7 +85,7 @@ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, void **colObj) {
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = triangles[i].n;
 				*colObj = triangles + i;
-				mirror = false;
+				mirror = triangles[i].mirror;
 			}
 		}
 	}
@@ -103,7 +103,7 @@ void drawPixel(float x, float y, char *pix) {
 
 	Point camera = Point(0, 0, -2.0f);
 	Vector normal;
-	void *obj = nullptr;
+	GraphicsObject *obj = nullptr;
 
 	Ray ray = Ray(camera, pixelPoint);
 
@@ -113,9 +113,9 @@ void drawPixel(float x, float y, char *pix) {
 
 	if (findColPoint(ray, &colPoint, &normal, &obj)) {
 		light = pointLit(colPoint, normal, obj);
-		pix[0] = 50 * light;
-		pix[1] = 200 * light;
-		pix[2] = 100 * light;
+		pix[0] = obj->r * light;
+		pix[1] = obj->g * light;
+		pix[2] = obj->b * light;
 	}
 	else {
 		pix[0] = 40;

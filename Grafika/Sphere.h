@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Vector.h"
+#include "GraphicsObject.h"
 
-class Sphere
+class Sphere : public GraphicsObject
 {
 public:
 	DEVICE_PREFIX Sphere();

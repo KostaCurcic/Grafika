@@ -1,7 +1,5 @@
 #pragma once
 
-#define CUDA
-
 #ifdef CUDA
 	#define DEVICE_PREFIX __host__ __device__
 
