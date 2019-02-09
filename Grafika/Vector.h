@@ -15,6 +15,7 @@ public:
 	DEVICE_PREFIX Vector operator*(const float) const;
 	//CrossProduct
 	DEVICE_PREFIX Vector operator%(const Vector&) const;
+	DEVICE_PREFIX Vector Reflect(const Vector& normal) const;
 
 private:
 

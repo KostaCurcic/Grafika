@@ -61,6 +61,43 @@ float pointLit(Point &p, Vector n, void* self) {
 	return lit;
 }
 
+bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, void **colObj) {
+
+	float t1, nearest = INFINITY;
+	bool mirror = false;
+
+	for (int i = 0; i < SPHC; i++) {
+		if (ray.intersects(spheres[i], &t1, nullptr)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				*colPoint = ray.getPointFromT(t1);
+				*colNormal = spheres[i].Normal(*colPoint);
+				*colObj = spheres + i;
+				mirror = true;
+			}
+		}
+	}
+
+	for (int i = 0; i < TRIS; i++) {
+		if (ray.intersects(triangles[i], &t1)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				*colPoint = ray.getPointFromT(t1);
+				*colNormal = triangles[i].n;
+				*colObj = triangles + i;
+				mirror = false;
+			}
+		}
+	}
+
+	if (mirror) {
+		return findColPoint(Ray(*colPoint, ray.d.Reflect(*colNormal)), colPoint, colNormal, colObj);
+	}
+
+	if (nearest < INFINITY) return true;
+	return false;
+}
+
 void drawPixel(float x, float y, char *pix) {
 	Point pixelPoint(x, y, 0);
 
@@ -70,32 +107,11 @@ void drawPixel(float x, float y, char *pix) {
 
 	Ray ray = Ray(camera, pixelPoint);
 
-	float t1, t2, light, nearest = INFINITY;
+	float light;
+
 	Point colPoint;
 
-	for (int i = 0; i < SPHC; i++) {
-		if (ray.intersects(spheres[i], &t1, nullptr)) {
-			if (t1 < nearest) {
-				nearest = t1;
-				colPoint = ray.getPointFromT(t1);
-				normal = spheres[i].Normal(colPoint);
-				obj = spheres + i;
-			}
-		}
-	}
-
-	for (int i = 0; i < TRIS; i++) {
-		if (ray.intersects(triangles[i], &t1)) {
-			if (t1 < nearest) {
-				nearest = t1;
-				colPoint = ray.getPointFromT(t1);
-				normal = triangles[i].n;
-				obj = triangles + i;
-			}
-		}
-	}
-
-	if (nearest < INFINITY) {
+	if (findColPoint(ray, &colPoint, &normal, &obj)) {
 		light = pointLit(colPoint, normal, obj);
 		pix[0] = 50 * light;
 		pix[1] = 200 * light;

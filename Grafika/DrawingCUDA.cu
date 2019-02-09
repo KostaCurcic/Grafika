@@ -28,7 +28,7 @@ Triangle *devTriangles;
 
 void InitFrame()
 {
-	spheres[0] = Sphere(Point(sinf(angle) * 3, -2, 10 + cosf(angle) * 3), 1);
+	spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 10 + cosf(angle) * 3), 1);
 	angle += 0.01;
 	//spheres[1] = Sphere(Point(0, -1000, 10), 995);
 	lights[0] = Point(2, 2, 10);
@@ -46,14 +46,14 @@ __device__ float pointLit(Point &p, Vector n, void* self, Point *lights, Sphere 
 		if (n * ray.d > 0) {
 			col = false;
 			for (int j = 0; j < SPHC; j++) {
-				if (spheres + j != self && ray.intersects(spheres[j], &t) && t > 0.001) {
+				if (spheres + j != self && ray.intersects(spheres[j], &t) && t > 0.0001) {
 					col = true;
 					break;
 				}
 			}
 			if (!col) {
 				for (int j = 0; j < TRIS; j++) {
-					if (triangles + j != self && ray.intersects(triangles[j], &t) && t > 0.001) {
+					if (triangles + j != self && ray.intersects(triangles[j], &t) && t > 0.0001) {
 						col = true;
 						break;
 					}
@@ -65,6 +65,43 @@ __device__ float pointLit(Point &p, Vector n, void* self, Point *lights, Sphere 
 		}
 	}
 	return lit;
+}
+
+__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, void **colObj, Sphere *spheres, Triangle *triangles) {
+
+	float t1, nearest = INFINITY;
+	bool mirror = false;
+
+	for (int i = 0; i < SPHC; i++) {
+		if (ray.intersects(spheres[i], &t1, nullptr)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				*colPoint = ray.getPointFromT(t1);
+				*colNormal = spheres[i].Normal(*colPoint);
+				*colObj = spheres + i;
+				mirror = true;
+			}
+		}
+	}
+
+	for (int i = 0; i < TRIS; i++) {
+		if (ray.intersects(triangles[i], &t1)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				*colPoint = ray.getPointFromT(t1);
+				*colNormal = triangles[i].n;
+				*colObj = triangles + i;
+				mirror = false;
+			}
+		}
+	}
+
+	if (mirror) {
+		return findColPoint(Ray(*colPoint, ray.d.Reflect(*colNormal)), colPoint, colNormal, colObj, spheres, triangles);
+	}
+
+	if (nearest < INFINITY) return true;
+	return false;
 }
 
 
@@ -87,32 +124,11 @@ __global__ void drawPixelCUDA(char* ptr, Point *lights, Sphere *spheres, Triangl
 
 	Ray ray = Ray(camera, pixelPoint);
 
-	float t1, t2, light, nearest = INFINITY;
+	float light;
+
 	Point colPoint;
 
-	for (int i = 0; i < SPHC; i++) {
-		if (ray.intersects(spheres[i], &t1, nullptr)) {
-			if (t1 < nearest) {
-				nearest = t1;
-				colPoint = ray.getPointFromT(t1);
-				normal = spheres[i].Normal(colPoint);
-				obj = spheres + i;
-			}
-		}
-	}
-
-	for (int i = 0; i < TRIS; i++) {
-		if (ray.intersects(triangles[i], &t1)) {
-			if (t1 < nearest) {
-				nearest = t1;
-				colPoint = ray.getPointFromT(t1);
-				normal = triangles[i].n;
-				obj = triangles + i;
-			}
-		}
-	}
-
-	if (nearest < INFINITY) {
+	if (findColPoint(ray, &colPoint, &normal, &obj, spheres, triangles)) {
 		light = pointLit(colPoint, normal, obj, lights, spheres, triangles);
 		pix[0] = 50 * light;
 		pix[1] = 200 * light;
