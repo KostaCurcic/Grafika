@@ -1,7 +1,7 @@
 #pragma once
 
-#define XRES 1600
-#define YRES 900
+#define XRES 800
+#define YRES 450
 
 void drawPixel(float x, float y, char *pix);
 
