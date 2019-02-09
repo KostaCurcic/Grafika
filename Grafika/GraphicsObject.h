@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Vector.h"
+#include "Color.h"
 
 enum EShape
 {
@@ -14,11 +15,11 @@ public:
 
 	DEVICE_PREFIX GraphicsObject() {
 		mirror = false;
-		r = g = b = 100;
+		color = Color(100, 100, 100);
 	}
 
 	EShape shape;
-	char r, g, b;
+	Color color;
 	bool mirror;
 	//virtual DEVICE_PREFIX Vector Normal(Point&) const = 0;
 
