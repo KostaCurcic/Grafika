@@ -6,9 +6,9 @@
 #include <math.h>
 #include <Windows.h>
 
-#define SPHC 1
+#define SPHC 2
 #define LIGHTS 1
-#define TRIS 2
+#define TRIS 3
 
 #define THRCOUNT 4
 
@@ -22,13 +22,23 @@ int signal = 0;
 
 void InitFrame()
 {
-	spheres[0] = Sphere(Point(sinf(angle) * 3, -1.5, 10 + cosf(angle) * 3), 1);
-	angle += 0.01;
-	//spheres[1] = Sphere(Point(0, -1000, 10), 995);
+	spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 10 + cosf(angle) * 3), 1);
+	spheres[0].mirror = true;
+
+	spheres[1] = Sphere(Point(5, -1, 5), 1);
+	spheres[1].color.r = 50;
+	spheres[1].color.g = 200;
+	spheres[1].color.b = 100;
+
 	lights[0] = Point(2, 2, 10);
 	triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
 	triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
-	//lights[1] = Point(1000, 0, 0);
+
+	triangles[2] = Triangle(Point(-6, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
+	triangles[2].mirror = true;
+	//triangles[2].color.r = 240;
+
+	angle += 0.01;
 }
 
 float pointLit(Point &p, Vector n, GraphicsObject* self) {
@@ -113,9 +123,9 @@ void drawPixel(float x, float y, char *pix) {
 
 	if (findColPoint(ray, &colPoint, &normal, &obj)) {
 		light = pointLit(colPoint, normal, obj);
-		pix[0] = obj->r * light;
-		pix[1] = obj->g * light;
-		pix[2] = obj->b * light;
+		pix[0] = obj->color.r * light;
+		pix[1] = obj->color.g * light;
+		pix[2] = obj->color.b * light;
 	}
 	else {
 		pix[0] = 40;

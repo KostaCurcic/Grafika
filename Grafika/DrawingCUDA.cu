@@ -41,7 +41,8 @@ void InitFrame()
 	triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
 
 	triangles[2] = Triangle(Point(-6, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
-	triangles[2].color.r = 240;
+	triangles[2].mirror = true;
+	//triangles[2].color.r = 240;
 
 	angle += 0.01;
 }
