@@ -21,6 +21,17 @@ DEVICE_PREFIX Vector Triangle::Normal(Point &) const
 	return n;
 }
 
+DEVICE_PREFIX void Triangle::interpolatePoint(const Point & p, float * v0val, float * v1val, float * v2val, float * pval, int n) const
+{
+	float surface = ((Vector)(v1 - v0) % (v2 - v0)).Length() / 2;
+	float v0w = (((Vector)(p - v1) % (p - v2)).Length() / 2) / surface;
+	float v1w = (((Vector)(p - v1) % (p - v0)).Length() / 2) / surface;
+	float v2w = 1.0f - v0w - v1w;
+	for (int i = 0; i < n; i++) {
+		pval[i] = v0val[i] * v0w + v1val[i] * v1w + v2val[i] * v2w;
+	}
+}
+
 /*
 
 DEVICE_PREFIX Point Triangle::V0() const

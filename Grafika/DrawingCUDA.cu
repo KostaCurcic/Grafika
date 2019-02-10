@@ -45,7 +45,7 @@ void InitFrame()
 	spheres[1].color.g = 250;
 	spheres[1].color.b = 200;
 
-	lights[0] = Light(Sphere(Point(-100, 100, 10), 10), .1f);
+	lights[0] = Light(Sphere(Point(-100, 100, -30), 10), .1f);
 	lights[0].color.r = 239;
 	lights[0].color.g = 163;
 	lights[0].color.b = 56;
@@ -60,6 +60,8 @@ void InitFrame()
 	triangles[2].color.b = 100;
 	//triangles[2].mirror = true;
 	//triangles[2].color.r = 240;
+
+	//triangles[2] = Triangle(Point(0, 2, 5), Point(2, 0, 5), Point(-2, 0, 5));
 
 	angle += 0.001f;
 
@@ -155,7 +157,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Light *lights, Sphere 
 
 	//TODO move out from kernel function
 	Point camera = Point(0, 0, -2.0f);
-	float dofStr = 0.035;
+	float dofStr = 0.0f;
 	float focalDistance = 10.5f;
 
 	Vector normal;
@@ -163,7 +165,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Light *lights, Sphere 
 
 	Ray ray = Ray(camera, pixelPoint);
 
-	if (dofStr > 0) {
+	if (dofStr > 0.0f) {
 		Point focalPoint = ray.getPointFromT(focalDistance);
 		float pointMove = tanf(dofStr) * focalDistance;
 		Point passPoint;
@@ -201,9 +203,26 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Light *lights, Sphere 
 				break;
 			}
 			else {
-				rMulR *= (obj->color.r * obj->color.r) / 65100.0f;
-				rMulG *= (obj->color.g * obj->color.g) / 65100.0f;
-				rMulB *= (obj->color.b * obj->color.b) / 65100.0f;
+
+				//TEMP
+				if (obj->shape == TRIANGLE) {
+					float v0col[] = { 255, 0, 0 };
+					float v1col[] = { 0, 255, 0 };
+					float v2col[] = { 0, 0, 255 };
+					float retcol[] = { 0, 0, 0 };
+
+					((Triangle*)obj)->interpolatePoint(colPoint, v0col, v1col, v2col, retcol, 3);
+
+					rMulR *= (retcol[0] * retcol[0]) / 65100.0f;
+					rMulG *= (retcol[1] * retcol[1]) / 65100.0f;
+					rMulB *= (retcol[2] * retcol[2]) / 65100.0f;
+				}
+				else {
+					rMulR *= (obj->color.r * obj->color.r) / 65100.0f;
+					rMulG *= (obj->color.g * obj->color.g) / 65100.0f;
+					rMulB *= (obj->color.b * obj->color.b) / 65100.0f;
+				}
+
 				ray.o = colPoint;
 				do {
 					ray.d.x = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f;
@@ -441,9 +460,25 @@ __global__ void drawPixelCUDA(char* ptr, Light *lights, Sphere *spheres, Triangl
 
 	if (findColPoint(ray, &colPoint, &normal, &obj, spheres, triangles)) {
 		light = pointLit(colPoint, normal, obj, lights, spheres, triangles);
-		pix[0] = obj->color.r * light + 8 * (1 - light);
-		pix[1] = obj->color.g * light + 24 * (1 - light);
-		pix[2] = obj->color.b * light + 48 * (1 - light);
+		if (obj == triangles + 2) {
+
+			float v0col[] = { 255, 0, 0 };
+			float v1col[] = { 0, 255, 0 };
+			float v2col[] = { 0, 0, 255 };
+			float retcol[] = { 0, 0, 0 };
+
+			((Triangle*)obj)->interpolatePoint(colPoint, v0col, v1col, v2col, retcol, 3);
+
+			pix[0] = retcol[0] * light + 8 * (1 - light);
+			pix[1] = retcol[1] * light + 24 * (1 - light);
+			pix[2] = retcol[2] * light + 48 * (1 - light);
+
+		}
+		else {
+			pix[0] = obj->color.r * light + 8 * (1 - light);
+			pix[1] = obj->color.g * light + 24 * (1 - light);
+			pix[2] = obj->color.b * light + 48 * (1 - light);
+		}
 	}
 	else{
 		pix[0] = 40;

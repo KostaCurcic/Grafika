@@ -42,9 +42,13 @@ void InitFrame()
 	triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
 	triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
 
-	triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
+	/*triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
+	triangles[2].color.g = 100;
+	triangles[2].color.b = 100;*/
 	//triangles[2].mirror = true;
 	//triangles[2].color.r = 240;
+
+	triangles[2] = Triangle(Point(0, 2, 5), Point(2, 0, 5), Point(-2, 0, 5));
 
 	angle += 0.001f;
 }
@@ -295,6 +299,20 @@ void drawPixel(float x, float y, char *pix) {
 
 	if (findColPoint(ray, &colPoint, &normal, &obj)) {
 		light = pointLit(colPoint, normal, obj);
+		if (obj == triangles + 2) {
+
+			float v0col[] = { 1, 0, 0 };
+			float v1col[] = { 0, 1, 0 };
+			float v2col[] = { 0, 0, 1 };
+			float retcol[] = { 0, 0, 0 };
+
+			((Triangle*)obj)->interpolatePoint(colPoint, v0col, v1col, v2col, retcol, 3);
+
+			pix[0] = retcol[0] * light + 8 * (1 - light);
+			pix[1] = retcol[1] * light + 24 * (1 - light);
+			pix[2] = retcol[2] * light + 48 * (1 - light);
+
+		}
 		pix[0] = obj->color.r * light;
 		pix[1] = obj->color.g * light;
 		pix[2] = obj->color.b * light;
