@@ -6,7 +6,7 @@
 #include <math.h>
 #include <Windows.h>
 
-//#define NONRT
+#define NONRT
 
 #define SPHC 2
 #define LIGHTS 2
@@ -37,7 +37,7 @@ void InitFrame()
 	triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
 	triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
 
-	triangles[2] = Triangle(Point(-6, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
+	triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
 	//triangles[2].mirror = true;
 	//triangles[2].color.r = 240;
 
@@ -110,27 +110,29 @@ void drawPixelR(float x, float y, float *pix) {
 	float light;
 	float ra;
 
+	float lm = 1.0f;
+
 	Point colPoint;
 
 	int bounceCount = 5;
 
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPoint(ray, &colPoint, &normal, &obj)) {
-			pix[0] += 1;
-			pix[1] += 5;
-			pix[2] += 10;
+			pix[0] += 1 * lm;
+			pix[1] += 5 * lm;
+			pix[2] += 10 * lm;
 			return;
 		}
 		if (obj >= lights && obj < lights + LIGHTS) {
 			if (obj == lights) {
-				pix[0] += 5000;
-				pix[1] += 1500;
-				pix[2] += 400;
+				pix[0] += 5000 * lm;
+				pix[1] += 1500 * lm;
+				pix[2] += 400 * lm;
 			}
 			else {
-				pix[0] += 1000;
-				pix[1] += 3000;
-				pix[2] += 200;
+				pix[0] += 1000 * lm;
+				pix[1] += 3000 * lm;
+				pix[2] += 200 * lm;
 			}
 			return;
 		}
@@ -140,7 +142,8 @@ void drawPixelR(float x, float y, float *pix) {
 			ray.d.y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
 			ray.d.z = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
 			ray.d.Normalize();
-		} while (ray.d * normal <= 0);
+		} while (ray.d * normal <= static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
+		lm *= 0.9;
 	}
 
 	/*if (findColPoint(ray, &colPoint, &normal, &obj)) {
@@ -164,15 +167,17 @@ DWORD WINAPI ThreadFunc(void* data) {
 		int size = YRES / THRCOUNT;
 		float rc, gc, bc;
 
+		float mull = 50;
+
 		int limit = (int)data * size + size;
 		for (int t = 0; t < 200000; t++) {
 			int i = rand() % YRES;
 			int j = rand() % XRES;
 			drawPixelR(j * 2.0f / YRES - XRES / (float)YRES + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / YRES
 				, i * 2.0 / YRES - 1.0 + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / XRES, realImg + (i * XRES + j) * 3);
-			rc = realImg[(i * XRES + j) * 3] / iteration[(int)data] * 5;
-			gc = realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * 5;
-			bc = realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * 5;
+			rc = realImg[(i * XRES + j) * 3] / iteration[(int)data] * mull;
+			gc = realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * mull;
+			bc = realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * mull;
 
 			if (rc > 255) rc = 255;
 			if (gc > 255) gc = 255;

@@ -69,5 +69,5 @@ int main() {
 		EVENTFUNC {WM_CREATE, initial},
 	};
 
-	DoGL(2, functions, 1600, 900);
+	DoGL(2, functions, 1920, 1080);
 }

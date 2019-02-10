@@ -3,7 +3,7 @@
 
 #ifdef CUDA
 
-//#define NONRT
+#define NONRT
 
 #include <math.h>
 #include <Windows.h>
@@ -33,27 +33,30 @@ Triangle *devTriangles;
 int iteration = 1;
 bool started = false;
 curandState *devState;
+int fc = 0;
 
 void InitFrame()
 {
-	spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 10 + cosf(angle) * 3), 1);
-	spheres[0].mirror = true;
+	spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 8 + cosf(angle) * 3), 1);
+	//spheres[0].mirror = true;
 
 	spheres[1] = Sphere(Point(5, -1, 5), 1);
 	spheres[1].color.r = 50;
 	spheres[1].color.g = 200;
 	spheres[1].color.b = 100;
 
-	lights[0] = Sphere(Point(2, 2, 10), 0.2);
+	lights[0] = Sphere(Point(-100, 100, 10), 10);
 	//lights[1] = Sphere(Point(-7, 0, 6), 0.5);
 	triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
 	triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
+
+	cudaMemcpy(devSpheres, spheres, SPHC * sizeof(Sphere), cudaMemcpyHostToDevice);
 
 	triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
 	//triangles[2].mirror = true;
 	//triangles[2].color.r = 240;
 
-	//angle += 0.01;
+	angle += 0.001f;
 }
 
 #ifdef NONRT
@@ -118,8 +121,8 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Sphere *lights, Sphere
 
 	if (xi > XRES || yi > YRES) return;
 
-	float x = xi * 2.0f / YRES - XRES / (float)YRES;
-	float y = yi * 2.0 / YRES - 1.0;
+	float x = (xi * 2.0f + curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)) * 2.0f) / YRES - XRES / (float)YRES;
+	float y = (yi * 2.0f + curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)) * 2.0f) / YRES - 1.0;
 
 	char *pix = ptr + (yi * XRES + xi) * 3;
 	float *rm = realMap + (yi * XRES + xi) * 3;
@@ -137,45 +140,50 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Sphere *lights, Sphere
 
 	Point colPoint;
 
-	float multi = 15;
+	float multi = 200, float lMul = 1.0;
 
 	int bounceCount = 5;
 
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPointR(ray, &colPoint, &normal, &obj, spheres, triangles, lights)) {
 
-			rm[0] += 1;
-			rm[1] += 5;
-			rm[2] += 10;
+			/*rm[0] += 18.2 * lMul;
+			rm[1] += 42.4 * lMul;
+			rm[2] += 55.2 * lMul;*/
 			break;
 		}
 		else if (obj >= lights && obj < lights + LIGHTS) {
-			if (obj == lights) {
-				rm[0] += 5000;
-				rm[1] += 1500;
-				rm[2] += 400;
+			/*if (obj == lights) {
+				rm[0] += 7000 * lMul;
+				rm[1] += 1000 * lMul;
+				rm[2] += 400 * lMul;
 			}
 			else {
-				rm[0] += 1000;
-				rm[1] += 3000;
-				rm[2] += 200;
-			}
+				rm[0] += 1000 * lMul;
+				rm[1] += 3000 * lMul;
+				rm[2] += 200 * lMul;
+			}*/
+			rm[0] += 50712 * lMul;
+			rm[1] += 2016 * lMul;
+			rm[2] += 316 * lMul;
+
 			break;
 		}
 		else {
 			ray.o = colPoint;
 			do {
 				ray.d.x = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f;
-				ray.d.y = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f;
-				ray.d.z = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f;
+				ray.d.y = curand_uniform(state + ((xi * 100 + yi + 1) % RANDGENS)) * 2 - 1.0f;
+				ray.d.z = curand_uniform(state + ((xi * 100 + yi + 2) % RANDGENS)) * 2 - 1.0f;
 				ray.d.Normalize();
-			} while (ray.d * normal <= 0);
+			} while (ray.d * normal <= curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)));
 		}
+		lMul *= 0.8f;
 	}
 
-	c1 = rm[0] / iter * multi;
-	c2 = rm[1] / iter * multi;
-	c3 = rm[2] / iter * multi;
+	c1 = sqrtf(rm[0] / iter * multi);
+	c2 = sqrtf(rm[1] / iter * multi);
+	c3 = sqrtf(rm[2] / iter * multi);
 
 	if (c1 > 255) c1 = 255;
 	if (c2 > 255) c2 = 255;
@@ -191,21 +199,30 @@ void DrawFrame() {
 	dim3 thrds(THRCOUNT, THRCOUNT);
 	dim3 blocks(XRES / THRCOUNT, YRES / THRCOUNT);
 
-	drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, map, devLights, devSpheres, devTriangles, iteration, devState);
+	cudaError_t cudaStatus;
 
-	cudaError_t cudaStatus = cudaGetLastError();
-	if (cudaStatus != cudaSuccess) {
-		printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-		return;
+	for (int i = 0; i < 5; i++) {
+
+		drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, map, devLights, devSpheres, devTriangles, iteration, devState);
+
+		cudaStatus = cudaGetLastError();
+		if (cudaStatus != cudaSuccess) {
+			printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+			return;
+		}
+
+		// cudaDeviceSynchronize waits for the kernel to finish, and returns
+		// any errors encountered during the launch.
+		cudaStatus = cudaDeviceSynchronize();
+		if (cudaStatus != cudaSuccess) {
+			printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+			return;
+		}
+
+		iteration++;
 	}
 
-	// cudaDeviceSynchronize waits for the kernel to finish, and returns
-	// any errors encountered during the launch.
-	cudaStatus = cudaDeviceSynchronize();
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-		return;
-	}
+	printf("Iteration : %d\n", iteration);
 
 	// Copy output vector from GPU buffer to host memory.
 	cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
@@ -214,7 +231,33 @@ void DrawFrame() {
 		return;
 	}
 
-	iteration++;
+	/*if (iteration % 50 < 5) {
+		FILE* pFile;
+		char name[] = "fileXX.raw";
+		name[4] = fc / 10 + '0';
+		name[5] = fc % 10 + '0';
+		pFile = fopen(name, "wb");
+		fwrite(imgptr, sizeof(char), XRES * YRES * 3, pFile);
+		fclose(pFile);
+		printf("Saving...\n");
+		fc++;
+	}*/
+
+
+	/*if (iteration >= 2000) {
+		iteration = 0;
+		cudaMemset(map, 0, XRES * YRES * 3 * sizeof(float));
+		FILE* pFile;
+		char name[] = "fileXX.raw";
+		name[4] = fc / 10 + '0';
+		name[5] = fc % 10 + '0';
+		pFile = fopen(name, "wb");
+		fwrite(imgptr, sizeof(char), XRES * YRES * 3, pFile);
+		fclose(pFile);
+		printf("Saving...\n");
+		InitFrame();
+		fc++;
+	}*/
 };
 
 void InitDrawing(char *ptr) {
