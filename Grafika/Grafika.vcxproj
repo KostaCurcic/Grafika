@@ -66,6 +66,7 @@
     <ClInclude Include="glext.h" />
     <ClInclude Include="GLInit.h" />
     <ClInclude Include="GraphicsObject.h" />
+    <ClInclude Include="Light.h" />
     <ClInclude Include="OpenGL3.1.h" />
     <ClInclude Include="Point.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>

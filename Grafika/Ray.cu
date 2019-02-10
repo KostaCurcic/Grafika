@@ -79,6 +79,23 @@ DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, float *t) const
 	return false;
 }
 
+DEVICE_PREFIX bool Ray::intersects(const Light &l, float *t) const
+{
+	return intersects((Sphere)l, t);
+}
+
+DEVICE_PREFIX bool Ray::intersects(const GraphicsObject *g, float *t) const
+{
+	switch (g->shape)
+	{
+	case TRIANGLE:
+		return intersects(*((Triangle*)g), t);
+	case SPHERE:
+	case LIGHT:
+		return intersects(*((Sphere*)g), t);
+	}
+}
+
 DEVICE_PREFIX Point Ray::getPointFromT(float t) const
 {
 	return o + d * t;

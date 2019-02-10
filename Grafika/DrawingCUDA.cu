@@ -16,19 +16,23 @@
 #define SPHC 2
 #define TRIS 3
 #define LIGHTS 1
-#define RANDGENS 500
+#define RANDGENS 1000
 
 #define THRCOUNT 8
 
 //Point camera = Point(0, 0, -2.0f);
 Sphere spheres[SPHC];
-Sphere lights[LIGHTS];
+Light lights[LIGHTS];
 Triangle triangles[TRIS];
 float angle = 0;
+
 char *imgptr, *devImgPtr;
-float *map;
+float *realImg;
+
+GraphicsObject **objMap;
+
 Sphere *devSpheres;
-Sphere *devLights;
+Light *devLights;
 Triangle *devTriangles;
 int iteration = 1;
 bool started = false;
@@ -45,22 +49,44 @@ void InitFrame()
 	spheres[1].color.g = 200;
 	spheres[1].color.b = 100;
 
-	lights[0] = Sphere(Point(-100, 100, 10), 10);
+	lights[0] = Light(Sphere(Point(-100, 100, 10), 10), .1f);
+	lights[0].color.r = 239;
+	lights[0].color.g = 163;
+	lights[0].color.b = 56;
+
+
 	//lights[1] = Sphere(Point(-7, 0, 6), 0.5);
 	triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
 	triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
-
-	cudaMemcpy(devSpheres, spheres, SPHC * sizeof(Sphere), cudaMemcpyHostToDevice);
 
 	triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
 	//triangles[2].mirror = true;
 	//triangles[2].color.r = 240;
 
 	angle += 0.001f;
+
+	cudaError_t cudaStatus = cudaMemcpy(devSpheres, spheres, SPHC * sizeof(Sphere), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMemcpy failed!");
+		return;
+	}
+
+	cudaStatus = cudaMemcpy(devLights, lights, LIGHTS * sizeof(Light), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMemcpy failed!");
+		return;
+	}
+
+	cudaStatus = cudaMemcpy(devTriangles, triangles, TRIS * sizeof(Triangle), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMemcpy failed!");
+		return;
+	}
+
 }
 
 #ifdef NONRT
-__device__ bool findColPointR(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, Sphere *spheres, Triangle *triangles, Sphere *lights, int iterations = 1) {
+__device__ bool findColPointR(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, Sphere *spheres, Triangle *triangles, Light *lights, int iterations = 1) {
 
 	float t1, nearest = INFINITY;
 	bool mirror = false;
@@ -78,13 +104,12 @@ __device__ bool findColPointR(Ray ray, Point *colPoint, Vector *colNormal, Graph
 	}
 
 	for (int i = 0; i < LIGHTS; i++) {
-		if (ray.intersects(lights[i], &t1, nullptr)) {
+		if (ray.intersects(lights[i], &t1)) {
 			if (t1 < nearest && t1 > 0.001) {
 				nearest = t1;
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = lights[i].Normal(*colPoint);
 				*colObj = lights + i;
-				mirror = lights[i].mirror;
 			}
 		}
 	}
@@ -112,10 +137,11 @@ __device__ bool findColPointR(Ray ray, Point *colPoint, Vector *colNormal, Graph
 __global__ void setup_kernel(curandState *state) {
 
 	int idx = threadIdx.x + blockDim.x*blockIdx.x;
+	if (idx >= RANDGENS) return;
 	curand_init(1234 + idx, idx, 0, &state[idx]);
 }
 
-__global__ void drawPixelCUDAR(char* ptr, float* realMap, Sphere *lights, Sphere *spheres, Triangle *triangles, int iter, curandState *state) {
+__global__ void drawPixelCUDAR(char* ptr, float* realMap, Light *lights, Sphere *spheres, Triangle *triangles, int iter, curandState *state) {
 	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
 	int yi = blockIdx.y * THRCOUNT + threadIdx.y;
 
@@ -140,32 +166,23 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Sphere *lights, Sphere
 
 	Point colPoint;
 
-	float multi = 200, float lMul = 1.0;
+	float expMulti = 1000, float reflMulti = 1.0;
 
 	int bounceCount = 5;
 
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPointR(ray, &colPoint, &normal, &obj, spheres, triangles, lights)) {
 
-			/*rm[0] += 18.2 * lMul;
-			rm[1] += 42.4 * lMul;
-			rm[2] += 55.2 * lMul;*/
+			rm[0] += 18.2 * reflMulti;
+			rm[1] += 42.4 * reflMulti;
+			rm[2] += 55.2 * reflMulti;
 			break;
 		}
 		else if (obj >= lights && obj < lights + LIGHTS) {
-			/*if (obj == lights) {
-				rm[0] += 7000 * lMul;
-				rm[1] += 1000 * lMul;
-				rm[2] += 400 * lMul;
-			}
-			else {
-				rm[0] += 1000 * lMul;
-				rm[1] += 3000 * lMul;
-				rm[2] += 200 * lMul;
-			}*/
-			rm[0] += 50712 * lMul;
-			rm[1] += 2016 * lMul;
-			rm[2] += 316 * lMul;
+
+			rm[0] += ((Light*)obj)->R() * reflMulti;
+			rm[1] += ((Light*)obj)->G() * reflMulti;
+			rm[2] += ((Light*)obj)->B() * reflMulti;
 
 			break;
 		}
@@ -178,12 +195,12 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Sphere *lights, Sphere
 				ray.d.Normalize();
 			} while (ray.d * normal <= curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)));
 		}
-		lMul *= 0.8f;
+		reflMulti *= 0.8f;
 	}
 
-	c1 = sqrtf(rm[0] / iter * multi);
-	c2 = sqrtf(rm[1] / iter * multi);
-	c3 = sqrtf(rm[2] / iter * multi);
+	c1 = sqrtf(rm[0] / iter * expMulti);
+	c2 = sqrtf(rm[1] / iter * expMulti);
+	c3 = sqrtf(rm[2] / iter * expMulti);
 
 	if (c1 > 255) c1 = 255;
 	if (c2 > 255) c2 = 255;
@@ -201,26 +218,23 @@ void DrawFrame() {
 
 	cudaError_t cudaStatus;
 
-	for (int i = 0; i < 5; i++) {
+	drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devLights, devSpheres, devTriangles, iteration, devState);
 
-		drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, map, devLights, devSpheres, devTriangles, iteration, devState);
-
-		cudaStatus = cudaGetLastError();
-		if (cudaStatus != cudaSuccess) {
-			printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-			return;
-		}
-
-		// cudaDeviceSynchronize waits for the kernel to finish, and returns
-		// any errors encountered during the launch.
-		cudaStatus = cudaDeviceSynchronize();
-		if (cudaStatus != cudaSuccess) {
-			printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-			return;
-		}
-
-		iteration++;
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+		return;
 	}
+
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	// any errors encountered during the launch.
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+		return;
+	}
+
+	iteration++;
 
 	printf("Iteration : %d\n", iteration);
 
@@ -246,7 +260,7 @@ void DrawFrame() {
 
 	/*if (iteration >= 2000) {
 		iteration = 0;
-		cudaMemset(map, 0, XRES * YRES * 3 * sizeof(float));
+		cudaMemset(realImg, 0, XRES * YRES * 3 * sizeof(float));
 		FILE* pFile;
 		char name[] = "fileXX.raw";
 		name[4] = fc / 10 + '0';
@@ -277,7 +291,7 @@ void InitDrawing(char *ptr) {
 		return;
 	}
 
-	cudaStatus = cudaMalloc((void**)&map, XRES * YRES * 3 * sizeof(float));
+	cudaStatus = cudaMalloc((void**)&realImg, XRES * YRES * 3 * sizeof(float));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
@@ -290,7 +304,7 @@ void InitDrawing(char *ptr) {
 		return;
 	}
 
-	cudaStatus = cudaMalloc((void**)&devLights, LIGHTS * sizeof(Sphere));
+	cudaStatus = cudaMalloc((void**)&devLights, LIGHTS * sizeof(Light));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
@@ -302,33 +316,16 @@ void InitDrawing(char *ptr) {
 		return;
 	}
 
-	setup_kernel << <1, RANDGENS >> > (devState);
-
-	InitFrame();
-
 	cudaStatus = cudaMalloc((void**)&devTriangles, TRIS * sizeof(Triangle));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
 	}
 
-	cudaStatus = cudaMemcpy(devSpheres, spheres, SPHC * sizeof(Sphere), cudaMemcpyHostToDevice);
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMemcpy failed!");
-		return;
-	}
 
-	cudaStatus = cudaMemcpy(devLights, lights, LIGHTS * sizeof(Sphere), cudaMemcpyHostToDevice);
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMemcpy failed!");
-		return;
-	}
+	setup_kernel << <10, RANDGENS / 10 >> > (devState);
 
-	cudaStatus = cudaMemcpy(devTriangles, triangles, TRIS * sizeof(Triangle), cudaMemcpyHostToDevice);
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMemcpy failed!");
-		return;
-	}
+	InitFrame();
 }
 
 #else

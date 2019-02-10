@@ -3,6 +3,7 @@
 #include "Vector.h"
 #include "Sphere.h"
 #include "Triangle.h"
+#include "Light.h"
 
 
 class Ray
@@ -18,6 +19,10 @@ public:
 	DEVICE_PREFIX bool intersects(const Sphere&, float*, float* = nullptr) const;
 
 	DEVICE_PREFIX bool intersects(const Triangle&, float*) const;
+
+	DEVICE_PREFIX bool intersects(const Light&, float*) const;
+
+	DEVICE_PREFIX bool intersects(const GraphicsObject*, float*) const;
 
 	DEVICE_PREFIX Point getPointFromT(float t) const;
 

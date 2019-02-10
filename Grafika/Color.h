@@ -12,7 +12,7 @@ public:
 		b = B;
 	}
 
-	char r, g, b;
+	unsigned char r, g, b;
 
 private:
 

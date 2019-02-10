@@ -6,7 +6,8 @@
 enum EShape
 {
 	TRIANGLE,
-	SPHERE
+	SPHERE,
+	LIGHT
 };
 
 class GraphicsObject
