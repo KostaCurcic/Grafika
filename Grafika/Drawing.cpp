@@ -107,12 +107,25 @@ void drawPixelR(float x, float y, float *rm) {
 	Point pixelPoint(x, y, 0);
 
 	Point camera = Point(0, 0, -2.0f);
+	float dofStr = 0.035;
+	float focalDistance = 10.5f;
 	Vector normal;
 	GraphicsObject *obj = nullptr;
 
 	Ray ray = Ray(camera, pixelPoint);
 
-	float reflMulti = 1.0;
+	if (dofStr > 0) {
+		Point focalPoint = ray.getPointFromT(focalDistance);
+		float pointMove = tanf(dofStr) * focalDistance;
+		Point passPoint;
+		do {
+			passPoint = Point(pixelPoint.x + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove,
+				pixelPoint.y + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove, 0);
+		} while (((Vector)(passPoint - pixelPoint)).Length() > pointMove);
+		ray = Ray(passPoint, focalPoint);
+	}
+
+	float rMulR = 1.0, rMulG = 1.0, rMulB = 1.0;
 
 	Point colPoint;
 
@@ -120,20 +133,23 @@ void drawPixelR(float x, float y, float *rm) {
 
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPoint(ray, &colPoint, &normal, &obj)) {
-			rm[0] += 18.2 * reflMulti;
-			rm[1] += 42.4 * reflMulti;
-			rm[2] += 55.2 * reflMulti;
+			rm[0] += 18.2 * rMulR;
+			rm[1] += 42.4 * rMulG;
+			rm[2] += 55.2 * rMulB;
 			return;
 		}
 		if (obj->shape == LIGHT) {
 
-			rm[0] += ((Light*)obj)->R() * reflMulti;
-			rm[1] += ((Light*)obj)->G() * reflMulti;
-			rm[2] += ((Light*)obj)->B() * reflMulti;
+			rm[0] += ((Light*)obj)->R() * rMulR;
+			rm[1] += ((Light*)obj)->G() * rMulG;
+			rm[2] += ((Light*)obj)->B() * rMulB;
 
 			return;
 		}
 		ray.o = colPoint;
+		rMulR *= (obj->color.r * obj->color.r) / 65100.0f;
+		rMulG *= (obj->color.g * obj->color.g) / 65100.0f;
+		rMulB *= (obj->color.b * obj->color.b) / 65100.0f;
 		do {
 			ray.d.x = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
 			ray.d.y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
@@ -141,7 +157,6 @@ void drawPixelR(float x, float y, float *rm) {
 			ray.d.Normalize();
 			if (ray.d * normal <= 0) ray.d = -ray.d;
 		} while (ray.d * normal <= static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
-		reflMulti *= 0.9;
 	}
 }
 

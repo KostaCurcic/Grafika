@@ -38,12 +38,12 @@ int fc = 0;
 void InitFrame()
 {
 	spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 8 + cosf(angle) * 3), 1);
-	//spheres[0].mirror = true;
+	spheres[0].mirror = true;
 
 	spheres[1] = Sphere(Point(5, -1, 5), 1);
-	spheres[1].color.r = 50;
-	spheres[1].color.g = 200;
-	spheres[1].color.b = 100;
+	spheres[1].color.r = 100;
+	spheres[1].color.g = 250;
+	spheres[1].color.b = 200;
 
 	lights[0] = Light(Sphere(Point(-100, 100, 10), 10), .1f);
 	lights[0].color.r = 239;
@@ -56,6 +56,8 @@ void InitFrame()
 	triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
 
 	triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
+	triangles[2].color.g = 100;
+	triangles[2].color.b = 100;
 	//triangles[2].mirror = true;
 	//triangles[2].color.r = 240;
 
@@ -151,11 +153,26 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Light *lights, Sphere 
 	 
 	Point pixelPoint(x, y, 0);
 
+	//TODO move out from kernel function
 	Point camera = Point(0, 0, -2.0f);
+	float dofStr = 0.035;
+	float focalDistance = 10.5f;
+
 	Vector normal;
 	GraphicsObject *obj = nullptr;
 
 	Ray ray = Ray(camera, pixelPoint);
+
+	if (dofStr > 0) {
+		Point focalPoint = ray.getPointFromT(focalDistance);
+		float pointMove = tanf(dofStr) * focalDistance;
+		Point passPoint;
+		do {
+			passPoint = Point(pixelPoint.x + (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove,
+				pixelPoint.y + (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove, 0);
+		} while (((Vector)(passPoint - pixelPoint)).Length() > pointMove);
+		ray = Ray(passPoint, focalPoint);
+	}
 
 	float light;
 	float ra, c1, c2, c3;
