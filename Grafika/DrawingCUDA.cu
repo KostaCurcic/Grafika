@@ -3,8 +3,6 @@
 
 #ifdef CUDA
 
-#define NONRT
-
 #include <math.h>
 #include <Windows.h>
 #include <stdio.h>
@@ -28,8 +26,6 @@ float angle = 0;
 
 char *imgptr, *devImgPtr;
 float *realImg;
-
-GraphicsObject **objMap;
 
 Sphere *devSpheres;
 Light *devLights;
@@ -178,23 +174,24 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Light *lights, Sphere 
 			rm[2] += 55.2 * reflMulti;
 			break;
 		}
-		else if (obj >= lights && obj < lights + LIGHTS) {
-
-			rm[0] += ((Light*)obj)->R() * reflMulti;
-			rm[1] += ((Light*)obj)->G() * reflMulti;
-			rm[2] += ((Light*)obj)->B() * reflMulti;
-
-			break;
-		}
 		else {
-			ray.o = colPoint;
-			do {
-				ray.d.x = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f;
-				ray.d.y = curand_uniform(state + ((xi * 100 + yi + 1) % RANDGENS)) * 2 - 1.0f;
-				ray.d.z = curand_uniform(state + ((xi * 100 + yi + 2) % RANDGENS)) * 2 - 1.0f;
-				ray.d.Normalize();
-			} while (ray.d * normal <= curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)));
-		}
+			if (obj->shape == LIGHT) {
+
+				rm[0] += ((Light*)obj)->R() * reflMulti;
+				rm[1] += ((Light*)obj)->G() * reflMulti;
+				rm[2] += ((Light*)obj)->B() * reflMulti;
+				break;
+			}
+			else {
+				ray.o = colPoint;
+				do {
+					ray.d.x = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f;
+					ray.d.y = curand_uniform(state + ((xi * 100 + yi + 1) % RANDGENS)) * 2 - 1.0f;
+					ray.d.z = curand_uniform(state + ((xi * 100 + yi + 2) % RANDGENS)) * 2 - 1.0f;
+					ray.d.Normalize();
+				} while (ray.d * normal <= curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)));
+			}
+		} while (ray.d * normal <= curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)));
 		reflMulti *= 0.8f;
 	}
 
@@ -297,7 +294,6 @@ void InitDrawing(char *ptr) {
 		return;
 	}
 
-
 	cudaStatus = cudaMalloc((void**)&devSpheres, SPHC * sizeof(Sphere));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
@@ -322,7 +318,6 @@ void InitDrawing(char *ptr) {
 		return;
 	}
 
-
 	setup_kernel << <10, RANDGENS / 10 >> > (devState);
 
 	InitFrame();
@@ -330,7 +325,7 @@ void InitDrawing(char *ptr) {
 
 #else
 
-__device__ float pointLit(Point &p, Vector n, GraphicsObject* self, Sphere *lights, Sphere *spheres, Triangle *triangles) {
+__device__ float pointLit(Point &p, Vector n, GraphicsObject* self, Light *lights, Sphere *spheres, Triangle *triangles) {
 	Ray ray;
 	float lit = 0, t;
 	bool col;
@@ -398,7 +393,7 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 }
 
 
-__global__ void drawPixelCUDA(char* ptr, Sphere *lights, Sphere *spheres, Triangle *triangles) {
+__global__ void drawPixelCUDA(char* ptr, Light *lights, Sphere *spheres, Triangle *triangles) {
 	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
 	int yi = blockIdx.y * THRCOUNT + threadIdx.y;
 
@@ -460,7 +455,7 @@ void InitDrawing(char * ptr)
 		return;
 	}
 
-	cudaStatus = cudaMalloc((void**)&devLights, LIGHTS * sizeof(Point));
+	cudaStatus = cudaMalloc((void**)&devLights, LIGHTS * sizeof(Light));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
@@ -487,7 +482,7 @@ void DrawFrame()
 		return;
 	}
 
-	cudaStatus = cudaMemcpy(devLights, lights, LIGHTS * sizeof(Point), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(devLights, lights, LIGHTS * sizeof(Light), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMemcpy failed!");
 		return;

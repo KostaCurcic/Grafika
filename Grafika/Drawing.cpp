@@ -6,7 +6,7 @@
 #include <math.h>
 #include <Windows.h>
 
-#define NONRT
+//#define NONRT
 
 #define SPHC 2
 #define LIGHTS 1
@@ -120,9 +120,9 @@ void drawPixelR(float x, float y, float *rm) {
 
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPoint(ray, &colPoint, &normal, &obj)) {
-			/*rm[0] += 1 * reflMulti;
-			rm[1] += 5 * reflMulti;
-			rm[2] += 10 * reflMulti;*/
+			rm[0] += 18.2 * reflMulti;
+			rm[1] += 42.4 * reflMulti;
+			rm[2] += 55.2 * reflMulti;
 			return;
 		}
 		if (obj->shape == LIGHT) {
@@ -151,28 +151,26 @@ DWORD WINAPI ThreadFunc(void* data) {
 		int size = YRES / THRCOUNT;
 		float rc, gc, bc;
 
-		float mull = 50;
+		float mull = 1000;
 
 		int limit = (int)data * size + size;
-		for (int t = 0; t < 200000; t++) {
-			int i = rand() % YRES;
-			int j = rand() % XRES;
+		for (int i = (int)data * size; i < limit; i++) {
+			for (int j = 0; j < XRES; j++) {
+				drawPixelR(j * 2.0f / YRES - XRES / (float)YRES + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / YRES
+					, i * 2.0 / YRES - 1.0 + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / XRES, realImg + (i * XRES + j) * 3);
 
-			drawPixelR(j * 2.0f / YRES - XRES / (float)YRES + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / YRES
-				, i * 2.0 / YRES - 1.0 + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / XRES, realImg + (i * XRES + j) * 3);
+				rc = sqrtf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * mull);
+				gc = sqrtf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * mull);
+				bc = sqrtf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * mull);
 
-			rc = sqrtf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * mull);
-			gc = sqrtf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * mull);
-			bc = sqrtf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * mull);
+				if (rc > 255) rc = 255;
+				if (gc > 255) gc = 255;
+				if (bc > 255) bc = 255;
 
-			if (rc > 255) rc = 255;
-			if (gc > 255) gc = 255;
-			if (bc > 255) bc = 255;
-
-			imgptr[(i * XRES + j) * 3] = rc;
-			imgptr[(i * XRES + j) * 3 + 1] = gc;
-			imgptr[(i * XRES + j) * 3 + 2] = bc;
-
+				imgptr[(i * XRES + j) * 3] = rc;
+				imgptr[(i * XRES + j) * 3 + 1] = gc;
+				imgptr[(i * XRES + j) * 3 + 2] = bc;
+			}
 		}
 		iteration[(int)data]++;
 
