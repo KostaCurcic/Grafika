@@ -16,7 +16,7 @@ public:
 
 	DEVICE_PREFIX GraphicsObject() {
 		mirror = false;
-		color = Color(100, 100, 100);
+		color = Color(220, 220, 220);
 	}
 
 	EShape shape;

@@ -139,6 +139,7 @@ void drawPixelR(float x, float y, float *rm) {
 			ray.d.y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
 			ray.d.z = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
 			ray.d.Normalize();
+			if (ray.d * normal <= 0) ray.d = -ray.d;
 		} while (ray.d * normal <= static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
 		reflMulti *= 0.9;
 	}

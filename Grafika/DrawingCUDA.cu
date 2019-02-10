@@ -162,37 +162,41 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, Light *lights, Sphere 
 
 	Point colPoint;
 
-	float expMulti = 1000, float reflMulti = 1.0;
+	float expMulti = 1000;
+	float rMulR = 1.0f, rMulG = 1.0f, rMulB = 1.0f;
 
 	int bounceCount = 5;
 
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPointR(ray, &colPoint, &normal, &obj, spheres, triangles, lights)) {
 
-			rm[0] += 18.2 * reflMulti;
-			rm[1] += 42.4 * reflMulti;
-			rm[2] += 55.2 * reflMulti;
+			rm[0] += 18.2 * rMulR;
+			rm[1] += 42.4 * rMulG;
+			rm[2] += 55.2 * rMulB;
 			break;
 		}
 		else {
 			if (obj->shape == LIGHT) {
 
-				rm[0] += ((Light*)obj)->R() * reflMulti;
-				rm[1] += ((Light*)obj)->G() * reflMulti;
-				rm[2] += ((Light*)obj)->B() * reflMulti;
+				rm[0] += ((Light*)obj)->R() * rMulR;
+				rm[1] += ((Light*)obj)->G() * rMulG;
+				rm[2] += ((Light*)obj)->B() * rMulB;
 				break;
 			}
 			else {
+				rMulR *= (obj->color.r * obj->color.r) / 65100.0f;
+				rMulG *= (obj->color.g * obj->color.g) / 65100.0f;
+				rMulB *= (obj->color.b * obj->color.b) / 65100.0f;
 				ray.o = colPoint;
 				do {
 					ray.d.x = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f;
 					ray.d.y = curand_uniform(state + ((xi * 100 + yi + 1) % RANDGENS)) * 2 - 1.0f;
 					ray.d.z = curand_uniform(state + ((xi * 100 + yi + 2) % RANDGENS)) * 2 - 1.0f;
 					ray.d.Normalize();
+					if (ray.d * normal <= 0) ray.d = -ray.d;
 				} while (ray.d * normal <= curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)));
 			}
-		} while (ray.d * normal <= curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)));
-		reflMulti *= 0.8f;
+		}
 	}
 
 	c1 = sqrtf(rm[0] / iter * expMulti);
@@ -215,25 +219,27 @@ void DrawFrame() {
 
 	cudaError_t cudaStatus;
 
-	drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devLights, devSpheres, devTriangles, iteration, devState);
+	for (int i = 0; i < 5; i++) {
+		drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devLights, devSpheres, devTriangles, iteration, devState);
 
-	cudaStatus = cudaGetLastError();
-	if (cudaStatus != cudaSuccess) {
-		printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-		return;
+		cudaStatus = cudaGetLastError();
+		if (cudaStatus != cudaSuccess) {
+			printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+			return;
+		}
+
+		// cudaDeviceSynchronize waits for the kernel to finish, and returns
+		// any errors encountered during the launch.
+		cudaStatus = cudaDeviceSynchronize();
+		if (cudaStatus != cudaSuccess) {
+			printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+			return;
+		}
+
+		iteration++;
+
+		printf("Iteration : %d\n", iteration);
 	}
-
-	// cudaDeviceSynchronize waits for the kernel to finish, and returns
-	// any errors encountered during the launch.
-	cudaStatus = cudaDeviceSynchronize();
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-		return;
-	}
-
-	iteration++;
-
-	printf("Iteration : %d\n", iteration);
 
 	// Copy output vector from GPU buffer to host memory.
 	cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
@@ -418,9 +424,9 @@ __global__ void drawPixelCUDA(char* ptr, Light *lights, Sphere *spheres, Triangl
 
 	if (findColPoint(ray, &colPoint, &normal, &obj, spheres, triangles)) {
 		light = pointLit(colPoint, normal, obj, lights, spheres, triangles);
-		pix[0] = obj->color.r * light;
-		pix[1] = obj->color.g * light;
-		pix[2] = obj->color.b * light;
+		pix[0] = obj->color.r * light + 8 * (1 - light);
+		pix[1] = obj->color.g * light + 24 * (1 - light);
+		pix[2] = obj->color.b * light + 48 * (1 - light);
 	}
 	else{
 		pix[0] = 40;

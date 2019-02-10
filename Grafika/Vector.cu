@@ -55,6 +55,14 @@ DEVICE_PREFIX Vector Vector::operator%(const Vector &p) const
 {
 	return Vector(y * p.z - z * p.y, z * p.x - x * p.z, x * p.y - y * p.x);
 }
+DEVICE_PREFIX Vector Vector::operator-() const
+{
+	return Vector(-x, -y, -z);
+}
+DEVICE_PREFIX Vector Vector::operator-(const Vector &p) const
+{
+	return Vector(x - p.x, y - p.y, z - p.z);
+}
 DEVICE_PREFIX Vector Vector::Reflect(const Vector & normal) const
 {
 	return *this - (normal * (2 * (*this * normal)));
