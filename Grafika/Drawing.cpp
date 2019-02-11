@@ -76,7 +76,13 @@ float *realImg;
 int iteration[THRCOUNT];
 
 void drawPixelR(float x, float y, float *rm) {
-	Point pixelPoint(x, y, 0);
+	//Point pixelPoint(x, y, 0);
+
+	Vector screenCenter = Vector(-1, 0, 1).Normalize() * 2;
+	Vector scrRight = Vector(1, 0, 1).Normalize();
+	Vector scrDown = Vector(0, 1, 0);
+
+	Point pixelPoint = sd.camera + screenCenter + scrRight * x + scrDown * y;
 
 	float focalDistance = sd.focalDistance;
 	Vector normal;
@@ -90,12 +96,13 @@ void drawPixelR(float x, float y, float *rm) {
 		ray.intersects(focalPlane, &focalDistance);
 
 		Point focalPoint = ray.getPointFromT(focalDistance);
-		float pointMove = tanf(sd.dofStr) * focalDistance;
+		float pointMove = tanf(sd.dofStr) * focalDistance, xOff, yOff;
 		Point passPoint;
 		do {
-			passPoint = Point(pixelPoint.x + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove,
-				pixelPoint.y + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove, 0);
-		} while (((Vector)(passPoint - pixelPoint)).Length() > pointMove);
+			xOff = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove;
+			yOff = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove;
+		} while (sqrtf(xOff * xOff + yOff * yOff) > pointMove);
+		passPoint = pixelPoint + scrRight * xOff + scrDown * yOff;
 		ray = Ray(passPoint, focalPoint);
 	}
 

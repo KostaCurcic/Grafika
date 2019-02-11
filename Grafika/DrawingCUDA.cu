@@ -136,8 +136,13 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	char *pix = ptr + (yi * XRES + xi) * 3;
 	float *rm = realMap + (yi * XRES + xi) * 3;
 	
-	
-	Point pixelPoint(x, y, 0);
+	Vector screenCenter = Vector(-1, 0, 1).Normalize() * 2;
+	Vector scrRight = Vector(1, 0, 1).Normalize();
+	Vector scrDown = Vector(0, 1, 0);
+
+	//Point pixelPoint = Point(10 + x, y, 0);
+
+	Point pixelPoint = sd->camera + screenCenter + scrRight * x + scrDown * y;
 
 	float focalDistance = sd->focalDistance;
 
@@ -153,12 +158,17 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		ray.intersects(focalPlane, &focalDistance);
 
 		Point focalPoint = ray.getPointFromT(focalDistance);
-		float pointMove = tanf(sd->dofStr) * focalDistance;
+		float pointMove = tanf(sd->dofStr) * focalDistance, xOff, yOff;
 		Point passPoint;
-		do {
+		/*do {
 			passPoint = Point(pixelPoint.x + (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove,
 				pixelPoint.y + (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove, 0);
-		} while (((Vector)(passPoint - pixelPoint)).Length() > pointMove);
+		} while (((Vector)(passPoint - pixelPoint)).Length() > pointMove);*/
+		do {
+			xOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
+			yOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
+		} while (sqrtf(xOff * xOff + yOff * yOff) > pointMove);
+		passPoint = pixelPoint + scrRight * xOff + scrDown * yOff;
 		ray = Ray(passPoint, focalPoint);
 	}
 
@@ -174,9 +184,9 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPoint(ray, &colPoint, &normal, &obj, sd)) {
 
-			rm[0] += 18.2 * rMulR;
-			rm[1] += 42.4 * rMulG;
-			rm[2] += 55.2 * rMulB;
+			rm[0] += powf(4.2, sd->gamma) * rMulR;
+			rm[1] += powf(6.5, sd->gamma) * rMulG;
+			rm[2] += powf(7.4, sd->gamma) * rMulB;
 			break;
 		}
 		else {
