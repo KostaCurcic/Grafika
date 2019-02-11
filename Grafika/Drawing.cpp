@@ -7,40 +7,33 @@
 #include <Windows.h>
 
 //#define NONRT
-
-#define SPHC 2
-#define LIGHTS 1
-#define TRIS 3
-
 #define THRCOUNT 4
 
-Point camera = Point(0, 0, -2.0f);
-Sphere spheres[SPHC];
-Light lights[LIGHTS];
-Triangle triangles[TRIS];
 float angle = 0;
 char *imgptr;
 int signal = 0;
 
+SceneData sd;
+
 void InitFrame()
 {
-	spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 8 + cosf(angle) * 3), 1);
+	sd.spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 8 + cosf(angle) * 3), 1);
 	//spheres[0].mirror = true;
 
-	spheres[1] = Sphere(Point(5, -1, 5), 1);
-	spheres[1].color.r = 50;
-	spheres[1].color.g = 200;
-	spheres[1].color.b = 100;
+	sd.spheres[1] = Sphere(Point(5, -1, 5), 1);
+	sd.spheres[1].color.r = 50;
+	sd.spheres[1].color.g = 200;
+	sd.spheres[1].color.b = 100;
 
-	lights[0] = Light(Sphere(Point(-100, 100, 10), 10), 1.0f);
-	lights[0].color.r = 239;
-	lights[0].color.g = 163;
-	lights[0].color.b = 56;
+	sd.lights[0] = Light(Sphere(Point(-100, 100, 10), 10), 1.0f);
+	sd.lights[0].color.r = 239;
+	sd.lights[0].color.g = 163;
+	sd.lights[0].color.b = 56;
 
 
 	//lights[1] = Sphere(Point(-7, 0, 6), 0.5);
-	triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
-	triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
+	sd.triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
+	sd.triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
 
 	/*triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
 	triangles[2].color.g = 100;
@@ -48,53 +41,49 @@ void InitFrame()
 	//triangles[2].mirror = true;
 	//triangles[2].color.r = 240;
 
-	triangles[2] = Triangle(Point(0, 2, 5), Point(2, 0, 5), Point(-2, 0, 5));
+	sd.triangles[2] = Triangle(Point(0, 2, 5), Point(2, 0, 5), Point(-2, 0, 5));
 
 	angle += 0.001f;
 }
 
-#ifdef NONRT
-
-float *realImg;
-int iteration[THRCOUNT];
 
 float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj) {
 
 	float t1, nearest = INFINITY;
 	bool mirror = false;
 
-	for (int i = 0; i < SPHC; i++) {
-		if (ray.intersects(spheres[i], &t1, nullptr)) {
+	for (int i = 0; i < sd.nSpheres; i++) {
+		if (ray.intersects(sd.spheres[i], &t1, nullptr)) {
 			if (t1 < nearest && t1 > 0.001) {
 				nearest = t1;
 				*colPoint = ray.getPointFromT(t1);
-				*colNormal = spheres[i].Normal(*colPoint);
-				*colObj = spheres + i;
-				mirror = spheres[i].mirror;
+				*colNormal = sd.spheres[i].Normal(*colPoint);
+				*colObj = sd.spheres + i;
+				mirror = sd.spheres[i].mirror;
 			}
 		}
 	}
 
-	for (int i = 0; i < LIGHTS; i++) {
-		if (ray.intersects(lights[i], &t1)) {
+	for (int i = 0; i < sd.nLights; i++) {
+		if (ray.intersects(sd.lights[i], &t1)) {
 			if (t1 < nearest && t1 > 0.001) {
 				nearest = t1;
 				*colPoint = ray.getPointFromT(t1);
-				*colNormal = lights[i].Normal(*colPoint);
-				*colObj = lights + i;
-				mirror = lights[i].mirror;
+				*colNormal = sd.lights[i].Normal(*colPoint);
+				*colObj = sd.lights + i;
+				mirror = sd.lights[i].mirror;
 			}
 		}
 	}
 
-	for (int i = 0; i < TRIS; i++) {
-		if (ray.intersects(triangles[i], &t1)) {
+	for (int i = 0; i < sd.nTriangles; i++) {
+		if (ray.intersects(sd.triangles[i], &t1)) {
 			if (t1 < nearest && t1 > 0.001) {
 				nearest = t1;
 				*colPoint = ray.getPointFromT(t1);
-				*colNormal = triangles[i].n;
-				*colObj = triangles + i;
-				mirror = triangles[i].mirror;
+				*colNormal = sd.triangles[i].n;
+				*colObj = sd.triangles + i;
+				mirror = sd.triangles[i].mirror;
 			}
 		}
 	}
@@ -107,18 +96,26 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 	return false;
 }
 
+#ifdef NONRT
+
+float *realImg;
+int iteration[THRCOUNT];
+
 void drawPixelR(float x, float y, float *rm) {
 	Point pixelPoint(x, y, 0);
 
-	Point camera = Point(0, 0, -2.0f);
 	float dofStr = 0.035;
-	float focalDistance = 10.5f;
+	float focalDistance = 5.0f;
 	Vector normal;
 	GraphicsObject *obj = nullptr;
 
-	Ray ray = Ray(camera, pixelPoint);
+	Ray ray = Ray(sd.camera, pixelPoint);
 
 	if (dofStr > 0) {
+
+		Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
+		ray.intersects(focalPlane, &focalDistance);
+
 		Point focalPoint = ray.getPointFromT(focalDistance);
 		float pointMove = tanf(dofStr) * focalDistance;
 		Point passPoint;
@@ -171,17 +168,15 @@ DWORD WINAPI ThreadFunc(void* data) {
 		int size = YRES / THRCOUNT;
 		float rc, gc, bc;
 
-		float mull = 1000;
-
 		int limit = (int)data * size + size;
 		for (int i = (int)data * size; i < limit; i++) {
 			for (int j = 0; j < XRES; j++) {
 				drawPixelR(j * 2.0f / YRES - XRES / (float)YRES + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / YRES
 					, i * 2.0 / YRES - 1.0 + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / XRES, realImg + (i * XRES + j) * 3);
 
-				rc = sqrtf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * mull);
-				gc = sqrtf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * mull);
-				bc = sqrtf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * mull);
+				rc = sqrtf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * sd.expMultiplier);
+				gc = sqrtf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * sd.expMultiplier);
+				bc = sqrtf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * sd.expMultiplier);
 
 				if (rc > 255) rc = 255;
 				if (gc > 255) gc = 255;
@@ -204,11 +199,24 @@ void DrawFrame() {};
 
 void InitDrawing(char * ptr)
 {
-	InitFrame();
 	imgptr = ptr;
 	realImg = (float*)malloc(XRES * YRES * 3 * sizeof(float));
 	ZeroMemory(realImg, XRES * YRES * 3 * sizeof(float));
 	ZeroMemory(imgptr, XRES * YRES * 3 * sizeof(char));
+
+	sd.nLights = 1;
+	sd.nSpheres = 2;
+	sd.nTriangles = 3;
+
+	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
+	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
+	sd.lights = (Light*)malloc(sd.nSpheres * sizeof(Sphere));
+
+	sd.camera = Point(0, 0, -2);
+	sd.expMultiplier = 1000;
+
+	InitFrame();
+
 	for (int i = 0; i < THRCOUNT; i++) {
 		iteration[i] = 1;
 		HANDLE thread = CreateThread(NULL, 0, ThreadFunc, (void*)i, 0, NULL);
@@ -221,19 +229,19 @@ float pointLit(Point &p, Vector n, GraphicsObject* self) {
 	Ray ray;
 	float lit = 0, t;
 	bool col;
-	for (int i = 0; i < LIGHTS; i++) {
-		ray = Ray(p, lights[i].c);
+	for (int i = 0; i < sd.nLights; i++) {
+		ray = Ray(p, sd.lights[i].c);
 		if (n * ray.d > 0) {
 			col = false;
-			for (int j = 0; j < SPHC; j++) {
-				if (spheres + j != self && ray.intersects(spheres[j], &t) && t > 0.001) {
+			for (int j = 0; j < sd.nSpheres; j++) {
+				if (sd.spheres + j != self && ray.intersects(sd.spheres[j], &t) && t > 0.001) {
 					col = true;
 					break;
 				}
 			}
 			if (!col) {
-				for (int j = 0; j < TRIS; j++) {
-					if (triangles + j != self && ray.intersects(triangles[j], &t) && t > 0.001) {
+				for (int j = 0; j < sd.nTriangles; j++) {
+					if (sd.triangles + j != self && ray.intersects(sd.triangles[j], &t) && t > 0.001) {
 						col = true;
 						break;
 					}
@@ -247,51 +255,13 @@ float pointLit(Point &p, Vector n, GraphicsObject* self) {
 	return lit;
 }
 
-bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj) {
-
-	float t1, nearest = INFINITY;
-	bool mirror = false;
-
-	for (int i = 0; i < SPHC; i++) {
-		if (ray.intersects(spheres[i], &t1, nullptr)) {
-			if (t1 < nearest && t1 > 0.001) {
-				nearest = t1;
-				*colPoint = ray.getPointFromT(t1);
-				*colNormal = spheres[i].Normal(*colPoint);
-				*colObj = spheres + i;
-				mirror = spheres[i].mirror;
-			}
-		}
-	}
-
-	for (int i = 0; i < TRIS; i++) {
-		if (ray.intersects(triangles[i], &t1)) {
-			if (t1 < nearest && t1 > 0.001) {
-				nearest = t1;
-				*colPoint = ray.getPointFromT(t1);
-				*colNormal = triangles[i].n;
-				*colObj = triangles + i;
-				mirror = triangles[i].mirror;
-			}
-		}
-	}
-
-	if (mirror) {
-		return findColPoint(Ray(*colPoint, ray.d.Reflect(*colNormal)), colPoint, colNormal, colObj);
-	}
-
-	if (nearest < INFINITY) return true;
-	return false;
-}
-
 void drawPixel(float x, float y, char *pix) {
 	Point pixelPoint(x, y, 0);
 
-	Point camera = Point(0, 0, -2.0f);
 	Vector normal;
 	GraphicsObject *obj = nullptr;
 
-	Ray ray = Ray(camera, pixelPoint);
+	Ray ray = Ray(sd.camera, pixelPoint);
 
 	float light;
 
@@ -299,7 +269,7 @@ void drawPixel(float x, float y, char *pix) {
 
 	if (findColPoint(ray, &colPoint, &normal, &obj)) {
 		light = pointLit(colPoint, normal, obj);
-		if (obj == triangles + 2) {
+		if (obj == sd.triangles + 2) {
 
 			float v0col[] = { 1, 0, 0 };
 			float v1col[] = { 0, 1, 0 };
@@ -347,6 +317,18 @@ DWORD WINAPI ThreadFunc(void* data) {
 void InitDrawing(char * ptr)
 {
 	imgptr = ptr;
+
+	sd.nLights = 1;
+	sd.nSpheres = 2;
+	sd.nTriangles = 3;
+
+	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
+	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
+	sd.lights = (Light*)malloc(sd.nSpheres * sizeof(Sphere));
+
+	sd.camera = Point(0, 0, -2);
+	sd.expMultiplier = 1000;
+
 	for (int i = 0; i < THRCOUNT; i++) {
 		HANDLE thread = CreateThread(NULL, 0, ThreadFunc, (void*)i, 0, NULL);
 	}
