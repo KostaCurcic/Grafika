@@ -17,33 +17,7 @@ SceneData sd;
 
 void InitFrame()
 {
-	sd.spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 8 + cosf(angle) * 3), 1);
-	//spheres[0].mirror = true;
-
-	sd.spheres[1] = Sphere(Point(5, -1, 5), 1);
-	sd.spheres[1].color.r = 50;
-	sd.spheres[1].color.g = 200;
-	sd.spheres[1].color.b = 100;
-
-	sd.lights[0] = Light(Sphere(Point(-100, 100, 10), 10), 1.0f);
-	sd.lights[0].color.r = 239;
-	sd.lights[0].color.g = 163;
-	sd.lights[0].color.b = 56;
-
-
-	//lights[1] = Sphere(Point(-7, 0, 6), 0.5);
-	sd.triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
-	sd.triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
-
-	/*triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
-	triangles[2].color.g = 100;
-	triangles[2].color.b = 100;*/
-	//triangles[2].mirror = true;
-	//triangles[2].color.r = 240;
-
-	sd.triangles[2] = Triangle(Point(0, 2, 5), Point(2, 0, 5), Point(-2, 0, 5));
-
-	angle += 0.001f;
+	
 }
 
 
@@ -104,20 +78,19 @@ int iteration[THRCOUNT];
 void drawPixelR(float x, float y, float *rm) {
 	Point pixelPoint(x, y, 0);
 
-	float dofStr = 0.035;
-	float focalDistance = 5.0f;
+	float focalDistance = sd.focalDistance;
 	Vector normal;
 	GraphicsObject *obj = nullptr;
 
 	Ray ray = Ray(sd.camera, pixelPoint);
 
-	if (dofStr > 0) {
+	if (sd.dofStr > 0) {
 
 		Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
 		ray.intersects(focalPlane, &focalDistance);
 
 		Point focalPoint = ray.getPointFromT(focalDistance);
-		float pointMove = tanf(dofStr) * focalDistance;
+		float pointMove = tanf(sd.dofStr) * focalDistance;
 		Point passPoint;
 		do {
 			passPoint = Point(pixelPoint.x + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove,
@@ -139,18 +112,24 @@ void drawPixelR(float x, float y, float *rm) {
 			rm[2] += 55.2 * rMulB;
 			return;
 		}
+
+
 		if (obj->shape == LIGHT) {
 
-			rm[0] += ((Light*)obj)->R() * rMulR;
-			rm[1] += ((Light*)obj)->G() * rMulG;
-			rm[2] += ((Light*)obj)->B() * rMulB;
+			rm[0] += powf(obj->color.r, sd.gamma) * ((Light*)obj)->intenisty * rMulR;
+			rm[1] += powf(obj->color.g, sd.gamma) * ((Light*)obj)->intenisty * rMulG;
+			rm[2] += powf(obj->color.b, sd.gamma) * ((Light*)obj)->intenisty * rMulB;
 
 			return;
 		}
+
+		float bMax = powf(255.0f, sd.gamma);
+
 		ray.o = colPoint;
-		rMulR *= (obj->color.r * obj->color.r) / 65100.0f;
-		rMulG *= (obj->color.g * obj->color.g) / 65100.0f;
-		rMulB *= (obj->color.b * obj->color.b) / 65100.0f;
+		rMulR *= powf(obj->color.r, sd.gamma) / bMax;
+		rMulG *= powf(obj->color.g, sd.gamma) / bMax;
+		rMulB *= powf(obj->color.b, sd.gamma) / bMax;
+
 		do {
 			ray.d.x = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
 			ray.d.y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
@@ -174,9 +153,9 @@ DWORD WINAPI ThreadFunc(void* data) {
 				drawPixelR(j * 2.0f / YRES - XRES / (float)YRES + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / YRES
 					, i * 2.0 / YRES - 1.0 + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / XRES, realImg + (i * XRES + j) * 3);
 
-				rc = sqrtf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * sd.expMultiplier);
-				gc = sqrtf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * sd.expMultiplier);
-				bc = sqrtf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * sd.expMultiplier);
+				rc = powf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
+				gc = powf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
+				bc = powf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
 
 				if (rc > 255) rc = 255;
 				if (gc > 255) gc = 255;
@@ -203,17 +182,6 @@ void InitDrawing(char * ptr)
 	realImg = (float*)malloc(XRES * YRES * 3 * sizeof(float));
 	ZeroMemory(realImg, XRES * YRES * 3 * sizeof(float));
 	ZeroMemory(imgptr, XRES * YRES * 3 * sizeof(char));
-
-	sd.nLights = 1;
-	sd.nSpheres = 2;
-	sd.nTriangles = 3;
-
-	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
-	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
-	sd.lights = (Light*)malloc(sd.nSpheres * sizeof(Sphere));
-
-	sd.camera = Point(0, 0, -2);
-	sd.expMultiplier = 1000;
 
 	InitFrame();
 
@@ -317,17 +285,6 @@ DWORD WINAPI ThreadFunc(void* data) {
 void InitDrawing(char * ptr)
 {
 	imgptr = ptr;
-
-	sd.nLights = 1;
-	sd.nSpheres = 2;
-	sd.nTriangles = 3;
-
-	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
-	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
-	sd.lights = (Light*)malloc(sd.nSpheres * sizeof(Sphere));
-
-	sd.camera = Point(0, 0, -2);
-	sd.expMultiplier = 1000;
 
 	for (int i = 0; i < THRCOUNT; i++) {
 		HANDLE thread = CreateThread(NULL, 0, ThreadFunc, (void*)i, 0, NULL);

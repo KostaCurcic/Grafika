@@ -21,7 +21,14 @@ struct SceneData
 	Light *lights;
 	int nLights;
 
+	float dofStr = 0.01f;
+	float focalDistance = 5.0f;
+
+	float gamma = 2.224f;
+
 } typedef SceneData;
+
+extern SceneData sd;
 
 void drawPixel(float x, float y, char *pix);
 

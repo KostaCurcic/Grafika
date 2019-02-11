@@ -36,33 +36,6 @@ Triangle *devTriangles;
 
 void InitFrame()
 {
-	sd.spheres[0] = Sphere(Point(sinf(angle) * 3, -1, 8 + cosf(angle) * 3), 1);
-	sd.spheres[0].mirror = true;
-
-	sd.spheres[1] = Sphere(Point(5, -1, 5), 1);
-	sd.spheres[1].color.r = 50;
-	sd.spheres[1].color.g = 200;
-	sd.spheres[1].color.b = 100;
-	
-	sd.lights[0] = Light(Sphere(Point(-100, 100, -50), 10), .2f);
-	sd.lights[0].color.r = 239;
-	sd.lights[0].color.g = 163;
-	sd.lights[0].color.b = 56;
-
-
-	//lights[1] = Sphere(Point(-7, 0, 6), 0.5);
-	sd.triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
-	sd.triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
-	
-	/*triangles[2] = Triangle(Point(-4, 2, 6), Point(-5, -2, 8), Point(-5, -5, 4));
-	triangles[2].color.g = 100;
-	triangles[2].color.b = 100;*/
-	//triangles[2].mirror = true;
-	//triangles[2].color.r = 240;
-	
-	sd.triangles[2] = Triangle(Point(0, 2, 5), Point(2, 0, 5), Point(-2, 0, 5));
-
-	//angle += 0.001f;
 
 	cudaError_t cudaStatus = cudaMemcpy(devSpheres, sd.spheres, sd.nSpheres * sizeof(Sphere), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
@@ -166,22 +139,21 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	
 	Point pixelPoint(x, y, 0);
 
-	float dofStr = 0.01f;
-	float focalDistance = 5.0f;
+	float focalDistance = sd->focalDistance;
 
 	Vector normal;
 	GraphicsObject *obj = nullptr;
 
 	Ray ray = Ray(sd->camera, pixelPoint);
 
-	if (dofStr > 0.0f) {
+	if (sd->dofStr > 0.0f) {
 
 		Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
 
 		ray.intersects(focalPlane, &focalDistance);
 
 		Point focalPoint = ray.getPointFromT(focalDistance);
-		float pointMove = tanf(dofStr) * focalDistance;
+		float pointMove = tanf(sd->dofStr) * focalDistance;
 		Point passPoint;
 		do {
 			passPoint = Point(pixelPoint.x + (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove,
@@ -210,13 +182,15 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		else {
 			if (obj->shape == LIGHT) {
 
-				rm[0] += ((Light*)obj)->R() * rMulR;
-				rm[1] += ((Light*)obj)->G() * rMulG;
-				rm[2] += ((Light*)obj)->B() * rMulB;
+				rm[0] += powf(obj->color.r, sd->gamma) * ((Light*)obj)->intenisty * rMulR;
+				rm[1] += powf(obj->color.g, sd->gamma) * ((Light*)obj)->intenisty * rMulG;
+				rm[2] += powf(obj->color.b, sd->gamma) * ((Light*)obj)->intenisty * rMulB;
 				break;
 			}
 			else {
 
+
+				float bMax = powf(255.0f, sd->gamma);
 				//TEMP
 				if (obj == sd->triangles + 2) {
 					float v0col[] = { 255, 0, 0 };
@@ -226,14 +200,14 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 					((Triangle*)obj)->interpolatePoint(colPoint, v0col, v1col, v2col, retcol, 3);
 
-					rMulR *= (retcol[0] * retcol[0]) / 65100.0f;
-					rMulG *= (retcol[1] * retcol[1]) / 65100.0f;
-					rMulB *= (retcol[2] * retcol[2]) / 65100.0f;
+					rMulR *= powf(retcol[0], sd->gamma) / bMax;
+					rMulG *= powf(retcol[1], sd->gamma) / bMax;
+					rMulB *= powf(retcol[2], sd->gamma) / bMax;
 				}
 				else {
-					rMulR *= (obj->color.r * obj->color.r) / 65100.0f;
-					rMulG *= (obj->color.g * obj->color.g) / 65100.0f;
-					rMulB *= (obj->color.b * obj->color.b) / 65100.0f;
+					rMulR *= powf(obj->color.r, sd->gamma) / bMax;
+					rMulG *= powf(obj->color.g, sd->gamma) / bMax;
+					rMulB *= powf(obj->color.b, sd->gamma) / bMax;
 				}
 
 				ray.o = colPoint;
@@ -248,9 +222,9 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		}
 	}
 
-	c1 = sqrtf(rm[0] / iter * sd->expMultiplier);
-	c2 = sqrtf(rm[1] / iter * sd->expMultiplier);
-	c3 = sqrtf(rm[2] / iter * sd->expMultiplier);
+	c1 = powf(rm[0] / iter * sd->expMultiplier, 1.0f / sd->gamma);
+	c2 = powf(rm[1] / iter * sd->expMultiplier, 1.0f / sd->gamma);
+	c3 = powf(rm[2] / iter * sd->expMultiplier, 1.0f / sd->gamma);
 
 	if (c1 > 255) c1 = 255;
 	if (c2 > 255) c2 = 255;
@@ -268,29 +242,25 @@ void DrawFrame() {
 
 	cudaError_t cudaStatus;
 
-	for (int i = 0; i < 5; i++) {
-		InitFrame();
+	drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devSd, iteration, devState);
 
-		drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devSd, iteration, devState);
-
-		cudaStatus = cudaGetLastError();
-		if (cudaStatus != cudaSuccess) {
-			printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-			return;
-		}
-
-		// cudaDeviceSynchronize waits for the kernel to finish, and returns
-		// any errors encountered during the launch.
-		cudaStatus = cudaDeviceSynchronize();
-		if (cudaStatus != cudaSuccess) {
-			printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-			return;
-		}
-
-		iteration++;
-
-		printf("Iteration : %d\n", iteration);
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+		return;
 	}
+
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	// any errors encountered during the launch.
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+		return;
+	}
+
+	iteration++;
+
+	printf("Iteration : %d\n", iteration);
 
 	// Copy output vector from GPU buffer to host memory.
 	cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
@@ -331,13 +301,6 @@ void DrawFrame() {
 void InitDrawing(char *ptr) {
 	imgptr = ptr;
 
-	sd.camera = Point(0, 0, -2);
-	sd.expMultiplier = 1000;
-
-	sd.nLights = 1;
-	sd.nSpheres = 2;
-	sd.nTriangles = 3;
-
 	// Choose which GPU to run on, change this on a multi-GPU system.
 	cudaError_t cudaStatus = cudaSetDevice(0);
 	if (cudaStatus != cudaSuccess) {
@@ -364,23 +327,17 @@ void InitDrawing(char *ptr) {
 		return;
 	}
 
-	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
-
 	cudaStatus = cudaMalloc((void**)&devLights, sd.nLights * sizeof(Light));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
 	}
 
-	sd.lights =  (Light*)malloc(sd.nLights * sizeof(Light));
-
 	cudaStatus = cudaMalloc((void**)&devTriangles, sd.nTriangles * sizeof(Triangle));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
 	}
-
-	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
 
 	cudaStatus = cudaMalloc((void**)&devSd, sizeof(SceneData));
 	if (cudaStatus != cudaSuccess) {
@@ -518,23 +475,17 @@ void InitDrawing(char * ptr)
 		return;
 	}
 
-	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
-
 	cudaStatus = cudaMalloc((void**)&devLights, sd.nLights * sizeof(Light));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
 	}
 
-	sd.lights = (Light*)malloc(sd.nLights * sizeof(Light));
-
 	cudaStatus = cudaMalloc((void**)&devTriangles, sd.nTriangles * sizeof(Triangle));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
 	}
-
-	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
 
 	cudaStatus = cudaMalloc((void**)&devSd, sizeof(SceneData));
 	if (cudaStatus != cudaSuccess) {
