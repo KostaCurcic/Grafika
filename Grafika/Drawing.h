@@ -5,7 +5,7 @@
 #define XRES 1920
 #define YRES 1080
 
-//#define NONRT
+#define NONRT
 
 class SceneData
 {
@@ -15,6 +15,7 @@ public:
 
 	Vector c2S, sR, sD;
 
+	bool reset = true;
 
 	float expMultiplier;
 

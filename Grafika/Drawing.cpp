@@ -13,11 +13,22 @@ float angle = 0;
 char *imgptr;
 int signal = 0;
 
+float *realImg;
+int iteration[THRCOUNT];
+
 SceneData sd;
 
 void InitFrame()
 {
 	sd.genCameraCoords();
+
+	if (sd.reset) {
+		sd.reset = false;
+		for (int i = 0; i < THRCOUNT; i++) {
+			iteration[i] = 0;
+		}
+		memset(realImg, 0, XRES * YRES * 3 * sizeof(float));
+	}
 }
 
 
@@ -71,9 +82,6 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 }
 
 #ifdef NONRT
-
-float *realImg;
-int iteration[THRCOUNT];
 
 void drawPixelR(float x, float y, float *rm) {
 	//Point pixelPoint(x, y, 0);

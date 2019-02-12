@@ -66,6 +66,12 @@ void InitFrame()
 		printf("cudaMemcpy failed!");
 		return;
 	}
+
+	if (sd.reset) {
+		sd.reset = false;
+		iteration = 1;
+		cudaMemset(realImg, 0, XRES * YRES * 3 * sizeof(float));
+	}
 }
 
 __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, SceneData *sd, int iterations = 2) {
@@ -136,14 +142,10 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 	char *pix = ptr + (yi * XRES + xi) * 3;
 	float *rm = realMap + (yi * XRES + xi) * 3;
-	
-	Vector screenCenter = Vector(-1, 0, 1).Normalize() * 2;
-	Vector scrRight = Vector(1, 0, 1).Normalize();
-	Vector scrDown = Vector(0, 1, 0);
 
 	//Point pixelPoint = Point(10 + x, y, 0);
 
-	Point pixelPoint = sd->camera + screenCenter + scrRight * x + scrDown * y;
+	Point pixelPoint = sd->camera + sd->c2S + sd->sR * x + sd->sD * y;
 
 	float focalDistance = sd->focalDistance;
 
@@ -154,9 +156,9 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 	if (sd->dofStr > 0.0f) {
 
-		Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
+		/*Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
 
-		ray.intersects(focalPlane, &focalDistance);
+		ray.intersects(focalPlane, &focalDistance);*/
 
 		Point focalPoint = ray.getPointFromT(focalDistance);
 		float pointMove = tanf(sd->dofStr) * focalDistance, xOff, yOff;
@@ -169,7 +171,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 			xOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
 			yOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
 		} while (sqrtf(xOff * xOff + yOff * yOff) > pointMove);
-		passPoint = pixelPoint + scrRight * xOff + scrDown * yOff;
+		passPoint = pixelPoint + sd->sR * xOff + sd->sD * yOff;
 		ray = Ray(passPoint, focalPoint);
 	}
 
