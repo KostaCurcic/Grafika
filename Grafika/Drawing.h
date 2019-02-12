@@ -5,11 +5,17 @@
 #define XRES 1920
 #define YRES 1080
 
-#define NONRT
+//#define NONRT
 
-struct SceneData
+class SceneData
 {
+public:
 	Point camera;
+	float camXang = 0, camYang = 0, camDist = 2;
+
+	Vector c2S, sR, sD;
+
+
 	float expMultiplier;
 
 	Triangle *triangles;
@@ -26,7 +32,9 @@ struct SceneData
 
 	float gamma = 2.224f;
 
-} typedef SceneData;
+	DEVICE_PREFIX void genCameraCoords();
+
+};
 
 extern SceneData sd;
 

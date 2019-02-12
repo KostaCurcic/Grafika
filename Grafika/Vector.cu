@@ -51,6 +51,11 @@ DEVICE_PREFIX Vector Vector::operator*(const float s) const
 	return Vector(x * s, y * s, z * s);
 }
 
+DEVICE_PREFIX Vector Vector::operator/(const float s) const
+{
+	return Vector(x / s, y / s, z / s);
+}
+
 DEVICE_PREFIX Vector Vector::operator%(const Vector &p) const
 {
 	return Vector(y * p.z - z * p.y, z * p.x - x * p.z, x * p.y - y * p.x);

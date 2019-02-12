@@ -17,7 +17,7 @@ SceneData sd;
 
 void InitFrame()
 {
-	
+	sd.genCameraCoords();
 }
 
 
@@ -78,11 +78,7 @@ int iteration[THRCOUNT];
 void drawPixelR(float x, float y, float *rm) {
 	//Point pixelPoint(x, y, 0);
 
-	Vector screenCenter = Vector(-1, 0, 1).Normalize() * 2;
-	Vector scrRight = Vector(1, 0, 1).Normalize();
-	Vector scrDown = Vector(0, 1, 0);
-
-	Point pixelPoint = sd.camera + screenCenter + scrRight * x + scrDown * y;
+	Point pixelPoint = sd.camera + sd.c2S + sd.sR * x + sd.sD * y;
 
 	float focalDistance = sd.focalDistance;
 	Vector normal;
@@ -92,8 +88,8 @@ void drawPixelR(float x, float y, float *rm) {
 
 	if (sd.dofStr > 0) {
 
-		Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
-		ray.intersects(focalPlane, &focalDistance);
+		/*Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
+		ray.intersects(focalPlane, &focalDistance);*/
 
 		Point focalPoint = ray.getPointFromT(focalDistance);
 		float pointMove = tanf(sd.dofStr) * focalDistance, xOff, yOff;
@@ -102,7 +98,7 @@ void drawPixelR(float x, float y, float *rm) {
 			xOff = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove;
 			yOff = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f) * pointMove;
 		} while (sqrtf(xOff * xOff + yOff * yOff) > pointMove);
-		passPoint = pixelPoint + scrRight * xOff + scrDown * yOff;
+		passPoint = pixelPoint + sd.sR * xOff + sd.sD * yOff;
 		ray = Ray(passPoint, focalPoint);
 	}
 
@@ -231,7 +227,7 @@ float pointLit(Point &p, Vector n, GraphicsObject* self) {
 }
 
 void drawPixel(float x, float y, char *pix) {
-	Point pixelPoint(x, y, 0);
+	Point pixelPoint = sd.camera + sd.c2S + sd.sR * x + sd.sD * y;
 
 	Vector normal;
 	GraphicsObject *obj = nullptr;
@@ -310,5 +306,25 @@ void DrawFrame()
 }
 
 #endif
+
+DEVICE_PREFIX void SceneData::genCameraCoords()
+{
+	if (camXang > 2 * 6.28318f) camXang -= 6.28318f;
+	if (camXang < 0.0f) camXang += 6.28318f;
+	if (camYang > 2 * 6.28318f) camYang -= 6.28318f;
+	if (camYang < 0.0f) camYang += 6.28318f;
+
+
+	c2S = Vector(0, 0, 1);
+
+	c2S = Vector(-sinf(camXang), tanf(camYang), cosf(camXang));
+
+	c2S = c2S.Normalize() * camDist;
+
+	sR = Vector(cosf(camXang), 0, sinf(camXang));
+
+	sD = (c2S / camDist) % sR;
+
+}
 
 #endif

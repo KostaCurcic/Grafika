@@ -28,6 +28,8 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	arr = (char*)malloc(XRES * YRES * 3);
 
 	sd.camera = Point(0, 0, -2);
+	sd.genCameraCoords();
+
 	sd.expMultiplier = 1000;
 	sd.dofStr = 0.005f;
 	sd.focalDistance = 5.0f;
@@ -95,19 +97,20 @@ void draw(WPARAM wParam, LPARAM lParam) {
 }
 
 void key(WPARAM wParam, LPARAM lParam) {
+	float speed = 0.1f, angSpeed = 0.04f;
 	switch (wParam)
 	{
 	case VK_DOWN:
-		sd.spheres[0].c.z -= 0.05;
+		sd.camYang += angSpeed;
 		break;
 	case VK_UP:
-		sd.spheres[0].c.z += 0.05;
+		sd.camYang -= angSpeed;
 		break;
 	case VK_LEFT:
-		sd.spheres[0].c.x -= 0.05;
+		sd.camXang += angSpeed;
 		break;
 	case VK_RIGHT:
-		sd.spheres[0].c.x += 0.05;
+		sd.camXang -= angSpeed;
 		break;
 	case VK_NUMPAD4:
 		sd.expMultiplier *= 1.1;
@@ -124,8 +127,22 @@ void key(WPARAM wParam, LPARAM lParam) {
 	case 0x31: //1
 		break;
 	case 0x57: //W
+		sd.camera = sd.camera + sd.c2S * (speed / sd.camDist);
 		break;
 	case 0x53: //S
+		sd.camera = sd.camera - sd.c2S * (speed / sd.camDist);
+		break;
+	case 0x41: //A
+		sd.camera = sd.camera - sd.sR * speed;
+		break;
+	case 0x44: //D
+		sd.camera = sd.camera + sd.sR * speed;
+		break;
+	case 0x43: //C
+		sd.camera = sd.camera - sd.sD * speed;
+		break;
+	case 0x5A: //Z
+		sd.camera = sd.camera + sd.sD * speed;
 		break;
 	}
 	InitFrame();

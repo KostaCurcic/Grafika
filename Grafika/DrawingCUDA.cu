@@ -36,6 +36,7 @@ Triangle *devTriangles;
 
 void InitFrame()
 {
+	sd.genCameraCoords();
 
 	cudaError_t cudaStatus = cudaMemcpy(devSpheres, sd.spheres, sd.nSpheres * sizeof(Sphere), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
@@ -409,7 +410,7 @@ __global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
 
 	char *pix = ptr + (yi * XRES + xi) * 3;
 
-	Point pixelPoint(x, y, 0);
+	Point pixelPoint = sd->camera + sd->c2S + sd->sR * x + sd->sD * y;
 
 	Vector normal;
 	GraphicsObject *obj;
@@ -541,5 +542,25 @@ void DrawFrame()
 }
 
 #endif
+
+DEVICE_PREFIX void SceneData::genCameraCoords()
+{
+	if (camXang > 2 * 6.28318f) camXang -= 6.28318f;
+	if (camXang < 0.0f) camXang += 6.28318f;
+	if (camYang > 2 * 6.28318f) camYang -= 6.28318f;
+	if (camYang < 0.0f) camYang += 6.28318f;
+
+
+	c2S = Vector(0, 0, 1);
+
+	c2S = Vector(-sinf(camXang), tanf(camYang), cosf(camXang));
+
+	c2S = c2S.Normalize() * camDist;
+
+	sR = Vector(cosf(camXang), 0, sinf(camXang));
+
+	sD = (c2S / camDist) % sR;
+
+}
 
 #endif
