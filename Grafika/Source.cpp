@@ -50,7 +50,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.lights = (Light*)malloc(sd.nSpheres * sizeof(Sphere));
 	sd.textures = (Texture*)malloc(sd.nTextures * sizeof(Texture));
 
-	sd.textures[0].load(R"(..\..\s.bmp)");
+	sd.textures[0].load(R"(..\tile.bmp)");
 
 	sd.spheres[0] = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
 	//sd.spheres[0].mirror = true;

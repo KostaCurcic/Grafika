@@ -4,8 +4,6 @@
 
 #include "Point.h"
 
-#ifndef CUDA
-
 Texture::Texture()
 {
 	width = height = 0;
@@ -20,7 +18,11 @@ Texture::Texture(const char * filename)
 Texture::~Texture()
 {
 	if (data != nullptr) {
-		free(data);
+		#ifdef CUDA
+			cudaFree(data);
+		#else
+			free(data);
+		#endif // CUDA
 	}
 }
 
@@ -46,6 +48,16 @@ void Texture::load(const char * filename)
 		data[i] = data[i + 2];
 		data[i + 2] = tmp;
 	}
+
+	#ifdef CUDA
+		unsigned char* devData;
+		cudaMalloc(&devData, size);
+
+		cudaMemcpy(devData, data, size, cudaMemcpyHostToDevice);
+
+		free(data);
+		data = devData;
+	#endif
 }
 
 DEVICE_PREFIX Color Texture::getColor(float x, float y, bool bilinear)
@@ -81,5 +93,3 @@ DEVICE_PREFIX void Texture::bilinearTexGet(float x, float y, Color *ret) {
 
 	*ret = Color(r, g, b);
 }
-
-#endif // CUDA

@@ -1,7 +1,5 @@
 #include "Sphere.h"
 
-#ifndef CUDA
-
 DEVICE_PREFIX Sphere::Sphere()
 {
 	c = Point(0, 0, 0);
@@ -16,9 +14,7 @@ DEVICE_PREFIX Sphere::Sphere(Point C, float R)
 	shape = SPHERE;
 }
 
-Vector Sphere::Normal(Point &p) const
+DEVICE_PREFIX Vector Sphere::Normal(Point &p) const
 {
 	return ((Vector)(p - c)).Normalize();
 }
-#endif
-

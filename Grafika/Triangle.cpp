@@ -1,7 +1,5 @@
 #include "Triangle.h"
 
-#ifndef CUDA
-
 DEVICE_PREFIX Triangle::Triangle()
 {
 	shape = TRIANGLE;
@@ -67,7 +65,7 @@ DEVICE_PREFIX void Triangle::interpolatePoint(const Point & p, float * v0val, fl
 	}
 }
 
-void Triangle::calcVectors()
+DEVICE_PREFIX void Triangle::calcVectors()
 {
 	e0 = v1 - v0;
 	e1 = v2 - v1;
@@ -80,9 +78,7 @@ void Triangle::calcVectors()
 	n = (e0 % e1).Normalize();
 }
 
-Vector Triangle::Normal(Point &) const
+DEVICE_PREFIX Vector Triangle::Normal(Point &) const
 {
 	return n;
 }
-
-#endif

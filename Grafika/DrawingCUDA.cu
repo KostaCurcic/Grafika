@@ -37,6 +37,7 @@ Texture *devTextures;
 
 void InitFrame()
 {
+
 	sd.genCameraCoords();
 
 	cudaError_t cudaStatus = cudaMemcpy(devSpheres, sd.spheres, sd.nSpheres * sizeof(Sphere), cudaMemcpyHostToDevice);
@@ -495,5 +496,12 @@ DEVICE_PREFIX void SceneData::genCameraCoords()
 	sD = (c2S / camDist) % sR;
 
 }
+
+#include "Point.cpp"
+#include "Ray.cpp"
+#include "Sphere.cpp"
+#include "Texture.cpp"
+#include "Triangle.cpp"
+#include "Vector.cpp"
 
 #endif

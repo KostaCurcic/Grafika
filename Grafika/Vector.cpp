@@ -1,17 +1,15 @@
 #include "Vector.h"
 
-#ifndef CUDA
-
 #include <math.h>
 
-Vector::Vector(const Point &p)
+DEVICE_PREFIX Vector::Vector(const Point &p)
 {
 	x = p.x;
 	y = p.y;
 	z = p.z;
 }
 
-Vector& Vector::Unzero()
+DEVICE_PREFIX Vector& Vector::Unzero()
 {
 	if (x == 0.0f) {
 		x = 0.00001f;
@@ -25,7 +23,7 @@ Vector& Vector::Unzero()
 	return *this;
 }
 
-Vector & Vector::Normalize()
+DEVICE_PREFIX Vector & Vector::Normalize()
 {
 	float sum = Length();
 
@@ -36,27 +34,27 @@ Vector & Vector::Normalize()
 	return *this;
 }
 
-float Vector::Length() const
+DEVICE_PREFIX float Vector::Length() const
 {
 	return sqrtf(x * x + y * y + z * z);
 }
 
-float Vector::operator*(const Vector &v) const
+DEVICE_PREFIX float Vector::operator*(const Vector &v) const
 {
 	return x * v.x + y * v.y + z * v.z;
 }
 
-Vector Vector::operator*(const float s) const
+DEVICE_PREFIX Vector Vector::operator*(const float s) const
 {
 	return Vector(x * s, y * s, z * s);
 }
 
-Vector Vector::operator/(const float s) const
+DEVICE_PREFIX Vector Vector::operator/(const float s) const
 {
 	return Vector(x / s, y / s, z / s);
 }
 
-Vector Vector::operator%(const Vector &p) const
+DEVICE_PREFIX Vector Vector::operator%(const Vector &p) const
 {
 	return Vector(y * p.z - z * p.y, z * p.x - x * p.z, x * p.y - y * p.x);
 }
@@ -70,9 +68,7 @@ DEVICE_PREFIX Vector Vector::operator-(const Vector &p) const
 	return Vector(x - p.x, y - p.y, z - p.z);
 }
 
-Vector Vector::Reflect(const Vector & normal) const
+DEVICE_PREFIX Vector Vector::Reflect(const Vector & normal) const
 {
 	return *this - (normal * (2 * (*this * normal)));
 }
-
-#endif
