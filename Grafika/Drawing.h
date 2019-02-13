@@ -3,8 +3,8 @@
 #include "Ray.h"
 #include "Texture.h"
 
-#define XRES 1280
-#define YRES 720
+#define XRES 1920
+#define YRES 1080
 
 //#define NONRT
 

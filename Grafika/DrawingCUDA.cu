@@ -164,12 +164,8 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	Ray ray = Ray(sd->camera, pixelPoint);
 
 	if (sd->dofStr > 0.0001f) {
-
-		/*Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
-
-		ray.intersects(focalPlane, &focalDistance);*/
-
-		Point focalPoint = ray.getPointFromT(focalDistance);
+		//Point focalPoint = ray.getPointFromT(focalDistance);
+		Point focalPoint = sd->camera + (Vector)(pixelPoint - sd->camera) * (1 + focalDistance / sd->camDist);
 		float pointMove = tanf(sd->dofStr) * focalDistance, xOff, yOff;
 		Point passPoint;
 		do {

@@ -72,7 +72,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.triangles[0].t1 = Point(0, 0, 0);
 	sd.triangles[0].t2 = Point(1, 1, 0);
 
-	sd.triangles[1] = Triangle(Point(-7, -2, 0), Point(-7, -2, 20), Point(7, -2, 21));
+	sd.triangles[1] = Triangle(Point(-7, -2, 0), Point(-7, -2, 21), Point(7, -2, 21));
 	sd.triangles[1].textured = true;
 	sd.triangles[1].texIndex = 0;
 	sd.triangles[1].t0 = Point(0, 0, 0);
@@ -116,11 +116,11 @@ void testKeys() {
 			changed = true;
 		}
 		if (GetAsyncKeyState(VK_NUMPAD5)) {
-			sd.focalDistance *= 1.1;
+			sd.focalDistance *= 1.03;
 			changed = true;
 		}
 		if (GetAsyncKeyState(VK_NUMPAD2)) {
-			sd.focalDistance /= 1.1;
+			sd.focalDistance /= 1.03;
 			changed = true;
 		}
 		if (GetAsyncKeyState(VK_NUMPAD6)) {
@@ -132,11 +132,11 @@ void testKeys() {
 			changed = true;
 		}
 		if (GetAsyncKeyState(VK_OEM_PLUS)) {
-			sd.gamma *= 1.1f;
+			sd.gamma *= 1.01f;
 			changed = true;
 		}
 		if (GetAsyncKeyState(VK_OEM_MINUS)) {
-			sd.gamma /= 1.1f;
+			sd.gamma /= 1.01f;
 			changed = true;
 		}
 		if (GetAsyncKeyState(0x31)) { //1
@@ -159,15 +159,23 @@ void testKeys() {
 			changed = true;
 		}
 		if (GetAsyncKeyState(0x43)) { //C
-			sd.camera = sd.camera - sd.sD * speed;
+			sd.camera = sd.camera + sd.sD * speed;
 			changed = true;
 		}
 		if (GetAsyncKeyState(0x5A)) { //Z
-			sd.camera = sd.camera + sd.sD * speed;
+			sd.camera = sd.camera - sd.sD * speed;
 			changed = true;
 		}
 		if (GetAsyncKeyState(0x52)) { //R
 			sd.reset = true;
+			changed = true;
+		}
+		if (GetAsyncKeyState(0x51)) { //Q
+			sd.camDist *= 1.1f;
+			changed = true;
+		}
+		if (GetAsyncKeyState(0x45)) { //E
+			sd.camDist /= 1.1f;
 			changed = true;
 		}
 		if (GetAsyncKeyState(VK_RBUTTON)) {
