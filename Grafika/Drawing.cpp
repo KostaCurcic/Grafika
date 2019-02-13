@@ -13,7 +13,7 @@ float angle = 0;
 char *imgptr;
 int signal = 0;
 
-float *realImg;
+float *realImg = nullptr;
 int iteration[THRCOUNT];
 
 SceneData sd;
@@ -27,7 +27,8 @@ void InitFrame()
 		for (int i = 0; i < THRCOUNT; i++) {
 			iteration[i] = 0;
 		}
-		memset(realImg, 0, XRES * YRES * 3 * sizeof(float));
+		if(realImg != nullptr)
+			memset(realImg, 0, XRES * YRES * 3 * sizeof(float));
 	}
 }
 
@@ -135,11 +136,21 @@ void drawPixelR(float x, float y, float *rm) {
 		}
 
 		float bMax = powf(255.0f, sd.gamma);
+		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
+			float coords[] = { 0, 0 };
+			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
+			Color c = sd.textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
+			rMulR *= powf(c.r, sd.gamma) / bMax;
+			rMulG *= powf(c.g, sd.gamma) / bMax;
+			rMulB *= powf(c.b, sd.gamma) / bMax;
+		}
+		else {
+			rMulR *= powf(obj->color.r, sd.gamma) / bMax;
+			rMulG *= powf(obj->color.g, sd.gamma) / bMax;
+			rMulB *= powf(obj->color.b, sd.gamma) / bMax;
+		}
 
 		ray.o = colPoint;
-		rMulR *= powf(obj->color.r, sd.gamma) / bMax;
-		rMulG *= powf(obj->color.g, sd.gamma) / bMax;
-		rMulB *= powf(obj->color.b, sd.gamma) / bMax;
 
 		do {
 			ray.d.x = static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2) - 1.0f;
@@ -248,23 +259,21 @@ void drawPixel(float x, float y, char *pix) {
 
 	if (findColPoint(ray, &colPoint, &normal, &obj)) {
 		light = pointLit(colPoint, normal, obj);
-		if (obj == sd.triangles + 2) {
+		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
+			float coords[] = { 0, 0 };
+			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
+			Color c = sd.textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
 
-			float v0col[] = { 1, 0, 0 };
-			float v1col[] = { 0, 1, 0 };
-			float v2col[] = { 0, 0, 1 };
-			float retcol[] = { 0, 0, 0 };
-
-			((Triangle*)obj)->interpolatePoint(colPoint, v0col, v1col, v2col, retcol, 3);
-
-			pix[0] = retcol[0] * light + 8 * (1 - light);
-			pix[1] = retcol[1] * light + 24 * (1 - light);
-			pix[2] = retcol[2] * light + 48 * (1 - light);
-
+			pix[0] = c.r * light;
+			pix[1] = c.g * light;
+			pix[2] = c.b * light;
 		}
-		pix[0] = obj->color.r * light;
-		pix[1] = obj->color.g * light;
-		pix[2] = obj->color.b * light;
+		else 
+		{
+			pix[0] = obj->color.r * light;
+			pix[1] = obj->color.g * light;
+			pix[2] = obj->color.b * light;
+		}
 	}
 	else {
 		pix[0] = 40;

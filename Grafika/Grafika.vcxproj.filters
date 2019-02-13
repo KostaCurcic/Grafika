@@ -42,6 +42,9 @@
     <ClCompile Include="Triangle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GLInit.h">
@@ -80,6 +83,9 @@
     <ClInclude Include="Light.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Texture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="Point.cu">
@@ -96,6 +102,9 @@
       <Filter>Source Files</Filter>
     </CudaCompile>
     <CudaCompile Include="Triangle.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="Texture.cu">
       <Filter>Source Files</Filter>
     </CudaCompile>
   </ItemGroup>

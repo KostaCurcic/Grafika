@@ -38,13 +38,17 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.nLights = 1;
 	sd.nSpheres = 2;
 	sd.nTriangles = 3;
+	sd.nTextures = 1;
 
 	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
 	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
 	sd.lights = (Light*)malloc(sd.nSpheres * sizeof(Sphere));
+	sd.textures = (Texture*)malloc(sd.nTextures * sizeof(Texture));
+
+	sd.textures[0].load(R"(..\tile.bmp)");
 
 	sd.spheres[0] = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
-	sd.spheres[0].mirror = true;
+	//sd.spheres[0].mirror = true;
 
 	sd.spheres[1] = Sphere(Point(5, -1, 5), 1);
 	sd.spheres[1].color.r = 50;
@@ -57,9 +61,21 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.lights[0].color.b = 56;
 
 	sd.triangles[0] = Triangle(Point(10, -2, 0), Point(-10, -2, 0), Point(10, -2, 20));
-	sd.triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
+	sd.triangles[0].textured = true;
+	sd.triangles[0].texIndex = 0;
+	sd.triangles[0].t0 = Point(1, 0, 0);
+	sd.triangles[0].t1 = Point(0, 0, 0);
+	sd.triangles[0].t2 = Point(1, 1, 0);
 
-	sd.triangles[2] = Triangle(Point(0, 2, 5), Point(2, 0, 5), Point(-2, 0, 5));
+	sd.triangles[1] = Triangle(Point(-10, -2, 0), Point(-10, -2, 20), Point(10, -2, 20));
+	sd.triangles[1].textured = true;
+	sd.triangles[1].texIndex = 0;
+	sd.triangles[1].t0 = Point(0, 0, 0);
+	sd.triangles[1].t1 = Point(0, 1, 0);
+	sd.triangles[1].t2 = Point(1, 1, 0);
+
+	sd.triangles[2] = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
+	sd.triangles[2].mirror = true;
 
 	InitDrawing(arr);
 
@@ -91,6 +107,22 @@ void testKeys() {
 	}
 	if (GetAsyncKeyState(VK_NUMPAD1)) {
 		sd.expMultiplier /= 1.1;
+		changed = true;
+	}
+	if (GetAsyncKeyState(VK_NUMPAD5)) {
+		sd.focalDistance *= 1.1;
+		changed = true;
+	}
+	if (GetAsyncKeyState(VK_NUMPAD2)) {
+		sd.focalDistance /= 1.1;
+		changed = true;
+	}
+	if (GetAsyncKeyState(VK_NUMPAD6)) {
+		sd.dofStr *= 1.1;
+		changed = true;
+	}
+	if (GetAsyncKeyState(VK_NUMPAD3)) {
+		sd.dofStr /= 1.1;
 		changed = true;
 	}
 	if (GetAsyncKeyState(VK_OEM_PLUS)) {

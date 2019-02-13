@@ -62,6 +62,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='CUDA|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Triangle.cpp" />
     <ClCompile Include="Vector.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
@@ -99,6 +100,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='CUDA|x64'">false</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="Texture.h" />
     <ClInclude Include="Triangle.h" />
     <ClInclude Include="Vector.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
@@ -118,6 +120,7 @@
     <CudaCompile Include="Point.cu" />
     <CudaCompile Include="Ray.cu" />
     <CudaCompile Include="Sphere.cu" />
+    <CudaCompile Include="Texture.cu" />
     <CudaCompile Include="Triangle.cu" />
     <CudaCompile Include="Vector.cu" />
   </ItemGroup>
@@ -236,7 +239,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -301,7 +304,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>

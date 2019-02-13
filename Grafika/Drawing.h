@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Ray.h"
+#include "Texture.h"
 
 #define XRES 1920
 #define YRES 1080
@@ -27,6 +28,9 @@ public:
 
 	Light *lights;
 	int nLights;
+
+	Texture *textures;
+	int nTextures;
 
 	float dofStr = 0.01f;
 	float focalDistance = 5.0f;

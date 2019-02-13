@@ -20,7 +20,7 @@
 float angle = 0;
 
 char *imgptr, *devImgPtr;
-float *realImg;
+float *realImg = nullptr;
 
 int iteration = 1;
 bool started = false;
@@ -33,6 +33,7 @@ SceneData *devSd;
 Light *devLights;
 Sphere *devSpheres;
 Triangle *devTriangles;
+Texture *devTextures;
 
 void InitFrame()
 {
@@ -56,10 +57,18 @@ void InitFrame()
 		return;
 	}
 
+	cudaStatus = cudaMemcpy(devTextures, sd.textures, sd.nTextures * sizeof(Texture), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMemcpy failed!");
+		return;
+	}
+
 	memcpy(&devSdCopy, &sd, sizeof(SceneData));
 	devSdCopy.lights = devLights;
 	devSdCopy.triangles = devTriangles;
 	devSdCopy.spheres = devSpheres;
+	devSdCopy.textures = devTextures;
+
 
 	cudaStatus = cudaMemcpy(devSd, &devSdCopy, sizeof(SceneData), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
@@ -70,7 +79,9 @@ void InitFrame()
 	if (sd.reset) {
 		sd.reset = false;
 		iteration = 1;
-		cudaMemset(realImg, 0, XRES * YRES * 3 * sizeof(float));
+
+		if(realImg != nullptr)
+			cudaMemset(realImg, 0, XRES * YRES * 3 * sizeof(float));
 	}
 }
 
@@ -154,7 +165,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 	Ray ray = Ray(sd->camera, pixelPoint);
 
-	if (sd->dofStr > 0.0f) {
+	if (sd->dofStr > 0.0001f) {
 
 		/*Triangle focalPlane = Triangle(Point(-10000, -10000, focalDistance), Point(0, 10000, focalDistance), Point(10000, -10000, focalDistance));
 
@@ -204,18 +215,13 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 
 				float bMax = powf(255.0f, sd->gamma);
-				//TEMP
-				if (obj == sd->triangles + 2) {
-					float v0col[] = { 255, 0, 0 };
-					float v1col[] = { 0, 255, 0 };
-					float v2col[] = { 0, 0, 255 };
-					float retcol[] = { 0, 0, 0 };
-
-					((Triangle*)obj)->interpolatePoint(colPoint, v0col, v1col, v2col, retcol, 3);
-
-					rMulR *= powf(retcol[0], sd->gamma) / bMax;
-					rMulG *= powf(retcol[1], sd->gamma) / bMax;
-					rMulB *= powf(retcol[2], sd->gamma) / bMax;
+				if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
+					float coords[] = { 0, 0 };
+					((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
+					Color c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
+					rMulR *= powf(c.r, sd->gamma) / bMax;
+					rMulG *= powf(c.g, sd->gamma) / bMax;
+					rMulB *= powf(c.b, sd->gamma) / bMax;
 				}
 				else {
 					rMulR *= powf(obj->color.r, sd->gamma) / bMax;
@@ -352,6 +358,12 @@ void InitDrawing(char *ptr) {
 		return;
 	}
 
+	cudaStatus = cudaMalloc((void**)&devTextures, sd.nTextures * sizeof(Texture));
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc failed!");
+		return;
+	}
+
 	cudaStatus = cudaMalloc((void**)&devSd, sizeof(SceneData));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
@@ -427,25 +439,21 @@ __global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
 		if (obj->shape == LIGHT) light == 1.0f;
 		else light = pointLit(colPoint, normal, obj, sd);
 
-		//TEMP
-		if (obj == sd->triangles + 2) {
+		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
+			float coords[] = { 0, 0 };
+			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
+			Color c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
 
-			float v0col[] = { 255, 0, 0 };
-			float v1col[] = { 0, 255, 0 };
-			float v2col[] = { 0, 0, 255 };
-			float retcol[] = { 0, 0, 0 };
-
-			((Triangle*)obj)->interpolatePoint(colPoint, v0col, v1col, v2col, retcol, 3);
-
-			pix[0] = retcol[0] * light + 8 * (1 - light);
-			pix[1] = retcol[1] * light + 24 * (1 - light);
-			pix[2] = retcol[2] * light + 48 * (1 - light);
-
+			pix[0] = c.r * light + 8 * (1 - light);
+			pix[1] = c.g * light + 24 * (1 - light);
+			pix[2] = c.b * light + 48 * (1 - light);
 		}
 		else {
+
 			pix[0] = obj->color.r * light + 8 * (1 - light);
 			pix[1] = obj->color.g * light + 24 * (1 - light);
 			pix[2] = obj->color.b * light + 48 * (1 - light);
+
 		}
 	}
 	else{
