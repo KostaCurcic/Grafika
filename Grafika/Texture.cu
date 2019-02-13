@@ -56,11 +56,35 @@ void Texture::load(const char * filename)
 	data = devData;
 }
 
-DEVICE_PREFIX Color Texture::getColor(float x, float y)
+DEVICE_PREFIX Color Texture::getColor(float x, float y, bool bilinear)
 {
-	int xc = (int)(x * width) * 3;
-	int yc = (int)(y * height) * 3;
-	return Color(data[yc * width + xc], data[yc * width + xc + 1], data[yc * width + xc + 2]);
+	float xc = (x * width);
+	float yc = (y * height);
+	Color ret;
+	if (bilinear) bilinearTexGet(xc, yc, &ret);
+	else nearestTexGet(xc, yc, &ret);
+	return ret;
+}
+
+DEVICE_PREFIX void Texture::nearestTexGet(float x, float y, Color *ret) {
+	*ret = Color(data[(((int)y) * width + (int)x) * 3], data[(((int)y) * width + (int)x) * 3 + 1], data[(((int)y) * width + (int)x) * 3 + 2]);
+}
+DEVICE_PREFIX void Texture::bilinearTexGet(float x, float y, Color *ret) {
+	int r, g, b;
+	int xc = (int)x, yc = (int)y;
+
+	if (xc >= width - 2 || yc >= height - 2) nearestTexGet(x, y, ret);
+
+	float xOff = x - xc, yOff = y - yc;
+
+	xc *= 3;
+	yc *= 3;
+
+	r = (data[yc * width + xc] *     (1 - xOff) + data[yc * width + xc + 3] * xOff)	* (1 - yOff) + (data[(yc + 3) * width + xc] *     (1 - xOff) + data[(yc + 3) * width + xc + 3] * xOff) * yOff;
+	g = (data[yc * width + xc + 1] * (1 - xOff) + data[yc * width + xc + 4] * xOff)	* (1 - yOff) + (data[(yc + 3) * width + xc + 1] * (1 - xOff) + data[(yc + 3) * width + xc + 4] * xOff) * yOff;
+	b = (data[yc * width + xc + 2] * (1 - xOff) + data[yc * width + xc + 5] * xOff)	* (1 - yOff) + (data[(yc + 3) * width + xc + 2] * (1 - xOff) + data[(yc + 3) * width + xc + 5] * xOff) * yOff;
+
+	*ret = Color(r, g ,b);
 }
 
 #endif // CUDA

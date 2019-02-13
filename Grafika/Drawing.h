@@ -3,10 +3,10 @@
 #include "Ray.h"
 #include "Texture.h"
 
-#define XRES 1920
-#define YRES 1080
+#define XRES 1280
+#define YRES 720
 
-#define NONRT
+//#define NONRT
 
 class SceneData
 {
@@ -17,8 +17,12 @@ public:
 	Vector c2S, sR, sD;
 
 	bool reset = true;
+	bool realTime = false;
+	bool bilinearTexture = true;
 
 	float expMultiplier;
+
+	Light ambient;
 
 	Triangle *triangles;
 	int nTriangles;

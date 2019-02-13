@@ -6,6 +6,7 @@
 #include "GLInit.h"
 
 HGLRC glrc = 0;
+HWND win;
 int pxFormat = 0;
 HDC hdc = 0;
 PIXELFORMATDESCRIPTOR pfd;
@@ -89,7 +90,7 @@ void DoGL(int count, EVENTFUNC fcns[], int xres, int yres) {
 
 	int a = RegisterClass(&myGLClass);
 
-	HWND win = CreateWindow("myGLClass", "Test", WS_OVERLAPPED | WS_POPUP, 0, 0, xres, yres, 0, 0, 0, 0);
+	win = CreateWindow("myGLClass", "Test", WS_OVERLAPPED | WS_POPUP, 0, 0, xres, yres, 0, 0, 0, 0);
 
 	ShowWindow(win, SW_SHOW);
 

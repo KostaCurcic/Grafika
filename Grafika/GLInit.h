@@ -1,5 +1,7 @@
 #pragma once
 
+extern HWND win;
+
 typedef struct EventFunc {
 	UINT eventNum;
 	void (*func)(WPARAM, LPARAM);

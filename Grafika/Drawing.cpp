@@ -82,8 +82,6 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 	return false;
 }
 
-#ifdef NONRT
-
 void drawPixelR(float x, float y, float *rm) {
 	//Point pixelPoint(x, y, 0);
 
@@ -119,9 +117,9 @@ void drawPixelR(float x, float y, float *rm) {
 
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPoint(ray, &colPoint, &normal, &obj)) {
-			rm[0] += 18.2 * rMulR;
-			rm[1] += 42.4 * rMulG;
-			rm[2] += 55.2 * rMulB;
+			rm[0] += sd.ambient.color.r * rMulR;
+			rm[1] += sd.ambient.color.g * rMulG;
+			rm[2] += sd.ambient.color.b * rMulB;
 			return;
 		}
 
@@ -170,22 +168,28 @@ DWORD WINAPI ThreadFunc(void* data) {
 		float rc, gc, bc;
 
 		int limit = (int)data * size + size;
+
 		for (int i = (int)data * size; i < limit; i++) {
 			for (int j = 0; j < XRES; j++) {
-				drawPixelR(j * 2.0f / YRES - XRES / (float)YRES + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / YRES
-					, i * 2.0 / YRES - 1.0 + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / XRES, realImg + (i * XRES + j) * 3);
+				if (sd.realTime) {
+					drawPixel(j * 2.0f / YRES - XRES / (float)YRES, i * 2.0 / YRES - 1.0, imgptr + (i * XRES + j) * 3);
+				}
+				else {
+					drawPixelR(j * 2.0f / YRES - XRES / (float)YRES + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / YRES
+						, i * 2.0 / YRES - 1.0 + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / XRES, realImg + (i * XRES + j) * 3);
 
-				rc = powf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
-				gc = powf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
-				bc = powf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
+					rc = powf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
+					gc = powf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
+					bc = powf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
 
-				if (rc > 255) rc = 255;
-				if (gc > 255) gc = 255;
-				if (bc > 255) bc = 255;
+					if (rc > 255) rc = 255;
+					if (gc > 255) gc = 255;
+					if (bc > 255) bc = 255;
 
-				imgptr[(i * XRES + j) * 3] = rc;
-				imgptr[(i * XRES + j) * 3 + 1] = gc;
-				imgptr[(i * XRES + j) * 3 + 2] = bc;
+					imgptr[(i * XRES + j) * 3] = rc;
+					imgptr[(i * XRES + j) * 3 + 1] = gc;
+					imgptr[(i * XRES + j) * 3 + 2] = bc;
+				}
 			}
 		}
 		iteration[(int)data]++;
@@ -195,8 +199,6 @@ DWORD WINAPI ThreadFunc(void* data) {
 	}
 	return 0;
 }
-
-void DrawFrame() {};
 
 void InitDrawing(char * ptr)
 {
@@ -212,8 +214,6 @@ void InitDrawing(char * ptr)
 		HANDLE thread = CreateThread(NULL, 0, ThreadFunc, (void*)i, 0, NULL);
 	}
 }
-
-#else
 
 float pointLit(Point &p, Vector n, GraphicsObject* self) {
 	Ray ray;
@@ -283,37 +283,9 @@ void drawPixel(float x, float y, char *pix) {
 	}
 }
 
-DWORD WINAPI ThreadFunc(void* data) {
-	while (true) {
-		//WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
-
-		int size = YRES / THRCOUNT;
-
-		int limit = (int)data * size + size;
-
-		for (int i = (int)data * size; i < limit; i++) {
-			for (int j = 0; j < XRES; j++) {
-				drawPixel(j * 2.0f / YRES - XRES / (float)YRES, i * 2.0 / YRES - 1.0, imgptr + (i * XRES + j) * 3);
-			}
-		}
-		//signal--;
-		//WakeByAddressSingle(&signal);
-	}
-	return 0;
-}
-
-void InitDrawing(char * ptr)
-{
-	imgptr = ptr;
-
-	for (int i = 0; i < THRCOUNT; i++) {
-		HANDLE thread = CreateThread(NULL, 0, ThreadFunc, (void*)i, 0, NULL);
-	}
-}
-
 void DrawFrame()
 {
-	InitFrame();
+	if(sd.realTime) InitFrame();
 	//signal = THRCOUNT;
 	//WakeByAddressAll(&signal);
 
@@ -321,8 +293,6 @@ void DrawFrame()
 		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
 	}*/
 }
-
-#endif
 
 DEVICE_PREFIX void SceneData::genCameraCoords()
 {

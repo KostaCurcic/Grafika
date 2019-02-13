@@ -133,8 +133,6 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 	return false;
 }
 
-#ifdef NONRT
-
 __global__ void setup_kernel(curandState *state) {
 
 	int idx = threadIdx.x + blockDim.x*blockIdx.x;
@@ -174,10 +172,6 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		Point focalPoint = ray.getPointFromT(focalDistance);
 		float pointMove = tanf(sd->dofStr) * focalDistance, xOff, yOff;
 		Point passPoint;
-		/*do {
-			passPoint = Point(pixelPoint.x + (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove,
-				pixelPoint.y + (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove, 0);
-		} while (((Vector)(passPoint - pixelPoint)).Length() > pointMove);*/
 		do {
 			xOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
 			yOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
@@ -198,9 +192,9 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
 		if (!findColPoint(ray, &colPoint, &normal, &obj, sd)) {
 
-			rm[0] += powf(4.2, sd->gamma) * rMulR;
-			rm[1] += powf(6.5, sd->gamma) * rMulG;
-			rm[2] += powf(7.4, sd->gamma) * rMulB;
+			rm[0] += powf(sd->ambient.color.r, sd->gamma) * sd->ambient.intenisty * rMulR;
+			rm[1] += powf(sd->ambient.color.g, sd->gamma) * sd->ambient.intenisty * rMulG;
+			rm[2] += powf(sd->ambient.color.b, sd->gamma) * sd->ambient.intenisty * rMulB;
 			break;
 		}
 		else {
@@ -218,7 +212,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 				if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
 					float coords[] = { 0, 0 };
 					((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
-					Color c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
+					Color c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1], sd->bilinearTexture);
 					rMulR *= powf(c.r, sd->gamma) / bMax;
 					rMulG *= powf(c.g, sd->gamma) / bMax;
 					rMulB *= powf(c.b, sd->gamma) / bMax;
@@ -255,69 +249,90 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	return;
 }
 
-void DrawFrame() {
-	dim3 thrds(THRCOUNT, THRCOUNT);
-	dim3 blocks(XRES / THRCOUNT, YRES / THRCOUNT);
+__device__ float pointLit(Point &p, Vector n, GraphicsObject* self, SceneData *sd) {
+	Ray ray;
+	float lit = 0, t;
+	bool col;
+	for (int i = 0; i < sd->nLights; i++) {
+		ray = Ray(p, sd->lights[i].c);
+		if (n * ray.d > 0) {
+			col = false;
+			for (int j = 0; j < sd->nSpheres; j++) {
+				if (sd->spheres + j != self && ray.intersects(sd->spheres[j], &t) && t > 0.0001) {
+					col = true;
+					break;
+				}
+			}
+			if (!col) {
+				for (int j = 0; j < sd->nTriangles; j++) {
+					if (sd->triangles + j != self && ray.intersects(sd->triangles[j], &t) && t > 0.0001) {
+						col = true;
+						break;
+					}
+				}
+			}
+			if (!col) {
+				lit += n * ray.d;
+			}
+		}
+	}
+	return lit;
+}
 
-	cudaError_t cudaStatus;
+__global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
+	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
+	int yi = blockIdx.y * THRCOUNT + threadIdx.y;
 
-	drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devSd, iteration, devState);
+	if (xi > XRES || yi > YRES) return;
 
-	cudaStatus = cudaGetLastError();
-	if (cudaStatus != cudaSuccess) {
-		printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-		return;
+	float x = xi * 2.0f / YRES - XRES / (float)YRES;
+	float y = yi * 2.0 / YRES - 1.0;
+
+	char *pix = ptr + (yi * XRES + xi) * 3;
+
+	Point pixelPoint = sd->camera + sd->c2S + sd->sR * x + sd->sD * y;
+
+	Vector normal;
+	GraphicsObject *obj;
+
+	Ray ray = Ray(sd->camera, pixelPoint);
+
+	float light;
+
+	Point colPoint;
+
+	if (findColPoint(ray, &colPoint, &normal, &obj, sd)) {
+		if (obj->shape == LIGHT) light == 1.0f;
+		else light = pointLit(colPoint, normal, obj, sd);
+
+		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
+			float coords[] = { 0, 0 };
+			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
+			Color c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1], sd->bilinearTexture);
+
+			pix[0] = c.r * light + 8 * (1 - light);
+			pix[1] = c.g * light + 24 * (1 - light);
+			pix[2] = c.b * light + 48 * (1 - light);
+		}
+		else {
+
+			pix[0] = obj->color.r * light + sd->ambient.color.r * (1 - light);
+			pix[1] = obj->color.g * light + sd->ambient.color.g * (1 - light);
+			pix[2] = obj->color.b * light + sd->ambient.color.b * (1 - light);
+
+		}
+	}
+	else{
+		pix[0] = 40;
+		pix[1] = 120;
+		pix[2] = 240;
+
 	}
 
-	// cudaDeviceSynchronize waits for the kernel to finish, and returns
-	// any errors encountered during the launch.
-	cudaStatus = cudaDeviceSynchronize();
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-		return;
-	}
+}
 
-	iteration++;
-
-	printf("Iteration : %d\n", iteration);
-
-	// Copy output vector from GPU buffer to host memory.
-	cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMemcpy failed!");
-		return;
-	}
-
-	/*if (iteration % 50 < 5) {
-		FILE* pFile;
-		char name[] = "fileXX.raw";
-		name[4] = fc / 10 + '0';
-		name[5] = fc % 10 + '0';
-		pFile = fopen(name, "wb");
-		fwrite(imgptr, sizeof(char), XRES * YRES * 3, pFile);
-		fclose(pFile);
-		printf("Saving...\n");
-		fc++;
-	}*/
-
-
-	/*if (iteration >= 2000) {
-		iteration = 0;
-		cudaMemset(realImg, 0, XRES * YRES * 3 * sizeof(float));
-		FILE* pFile;
-		char name[] = "fileXX.raw";
-		name[4] = fc / 10 + '0';
-		name[5] = fc % 10 + '0';
-		pFile = fopen(name, "wb");
-		fwrite(imgptr, sizeof(char), XRES * YRES * 3, pFile);
-		fclose(pFile);
-		printf("Saving...\n");
-		InitFrame();
-		fc++;
-	}*/
-};
-
-void InitDrawing(char *ptr) {
+void InitDrawing(char * ptr)
+{
 	imgptr = ptr;
 
 	// Choose which GPU to run on, change this on a multi-GPU system.
@@ -379,179 +394,91 @@ void InitDrawing(char *ptr) {
 	setup_kernel << <10, RANDGENS / 10 >> > (devState);
 
 	InitFrame();
-}
 
-#else
-
-__device__ float pointLit(Point &p, Vector n, GraphicsObject* self, SceneData *sd) {
-	Ray ray;
-	float lit = 0, t;
-	bool col;
-	for (int i = 0; i < sd->nLights; i++) {
-		ray = Ray(p, sd->lights[i].c);
-		if (n * ray.d > 0) {
-			col = false;
-			for (int j = 0; j < sd->nSpheres; j++) {
-				if (sd->spheres + j != self && ray.intersects(sd->spheres[j], &t) && t > 0.0001) {
-					col = true;
-					break;
-				}
-			}
-			if (!col) {
-				for (int j = 0; j < sd->nTriangles; j++) {
-					if (sd->triangles + j != self && ray.intersects(sd->triangles[j], &t) && t > 0.0001) {
-						col = true;
-						break;
-					}
-				}
-			}
-			if (!col) {
-				lit += n * ray.d;
-			}
-		}
-	}
-	return lit;
-}
-
-__global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
-	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
-	int yi = blockIdx.y * THRCOUNT + threadIdx.y;
-
-	if (xi > XRES || yi > YRES) return;
-
-	float x = xi * 2.0f / YRES - XRES / (float)YRES;
-	float y = yi * 2.0 / YRES - 1.0;
-
-	char *pix = ptr + (yi * XRES + xi) * 3;
-
-	Point pixelPoint = sd->camera + sd->c2S + sd->sR * x + sd->sD * y;
-
-	Vector normal;
-	GraphicsObject *obj;
-
-	Ray ray = Ray(sd->camera, pixelPoint);
-
-	float light;
-
-	Point colPoint;
-
-	if (findColPoint(ray, &colPoint, &normal, &obj, sd)) {
-		if (obj->shape == LIGHT) light == 1.0f;
-		else light = pointLit(colPoint, normal, obj, sd);
-
-		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
-			float coords[] = { 0, 0 };
-			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
-			Color c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
-
-			pix[0] = c.r * light + 8 * (1 - light);
-			pix[1] = c.g * light + 24 * (1 - light);
-			pix[2] = c.b * light + 48 * (1 - light);
-		}
-		else {
-
-			pix[0] = obj->color.r * light + 8 * (1 - light);
-			pix[1] = obj->color.g * light + 24 * (1 - light);
-			pix[2] = obj->color.b * light + 48 * (1 - light);
-
-		}
-	}
-	else{
-		pix[0] = 40;
-		pix[1] = 120;
-		pix[2] = 240;
-
-	}
-
-}
-
-void InitDrawing(char * ptr)
-{
-	imgptr = ptr;
-
-	sd.camera = Point(0, 0, -2);
-	sd.expMultiplier = 1000;
-
-	sd.nLights = 1;
-	sd.nSpheres = 2;
-	sd.nTriangles = 3;
-
-	// Choose which GPU to run on, change this on a multi-GPU system.
-	cudaError_t cudaStatus = cudaSetDevice(0);
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-		return;
-	}
-
-	// Allocate GPU buffers for three vectors (two input, one output)    .
-	cudaStatus = cudaMalloc((void**)&devImgPtr, XRES * YRES * 3 * sizeof(char));
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMalloc failed!");
-		return;
-	}
-
-	cudaStatus = cudaMalloc((void**)&devSpheres, sd.nSpheres * sizeof(Sphere));
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMalloc failed!");
-		return;
-	}
-
-	cudaStatus = cudaMalloc((void**)&devLights, sd.nLights * sizeof(Light));
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMalloc failed!");
-		return;
-	}
-
-	cudaStatus = cudaMalloc((void**)&devTriangles, sd.nTriangles * sizeof(Triangle));
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMalloc failed!");
-		return;
-	}
-
-	cudaStatus = cudaMalloc((void**)&devSd, sizeof(SceneData));
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMalloc failed!");
-		return;
-	}
-
-	started = true;
 }
 
 void DrawFrame()
 {
-	if (!started) return;
-	InitFrame();
-	
-	cudaError_t cudaStatus;
+	if (sd.realTime) {
+		InitFrame();
 
-	dim3 thrds(THRCOUNT, THRCOUNT);
-	dim3 blocks(XRES / THRCOUNT, YRES / THRCOUNT);
+		cudaError_t cudaStatus;
 
-	drawPixelCUDA << <blocks, thrds >> > (devImgPtr, devSd);
+		dim3 thrds(THRCOUNT, THRCOUNT);
+		dim3 blocks(XRES / THRCOUNT, YRES / THRCOUNT);
 
-	cudaStatus = cudaGetLastError();
-	if (cudaStatus != cudaSuccess) {
-		printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-		return;
+		drawPixelCUDA << <blocks, thrds >> > (devImgPtr, devSd);
+
+		cudaStatus = cudaGetLastError();
+		if (cudaStatus != cudaSuccess) {
+			printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+			return;
+		}
+
+		// cudaDeviceSynchronize waits for the kernel to finish, and returns
+		// any errors encountered during the launch.
+		cudaStatus = cudaDeviceSynchronize();
+		if (cudaStatus != cudaSuccess) {
+			printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+			return;
+		}
+
+		// Copy output vector from GPU buffer to host memory.
+		cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
+		if (cudaStatus != cudaSuccess) {
+			fprintf(stderr, "cudaMemcpy failed!");
+			return;
+		}
 	}
+	else {
+		dim3 thrds(THRCOUNT, THRCOUNT);
+		dim3 blocks(XRES / THRCOUNT, YRES / THRCOUNT);
 
-	// cudaDeviceSynchronize waits for the kernel to finish, and returns
-	// any errors encountered during the launch.
-	cudaStatus = cudaDeviceSynchronize();
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-		return;
-	}
+		cudaError_t cudaStatus;
 
-	// Copy output vector from GPU buffer to host memory.
-	cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMemcpy failed!");
-		return;
+		drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devSd, iteration, devState);
+
+		cudaStatus = cudaGetLastError();
+		if (cudaStatus != cudaSuccess) {
+			printf("addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+			return;
+		}
+
+		// cudaDeviceSynchronize waits for the kernel to finish, and returns
+		// any errors encountered during the launch.
+		cudaStatus = cudaDeviceSynchronize();
+		if (cudaStatus != cudaSuccess) {
+			printf("cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+			return;
+		}
+
+		iteration++;
+
+		printf("Iteration : %d\n", iteration);
+
+		// Copy output vector from GPU buffer to host memory.
+		cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
+		if (cudaStatus != cudaSuccess) {
+			fprintf(stderr, "cudaMemcpy failed!");
+			return;
+		}
+
+		/*if (iteration >= 2000) {
+			iteration = 0;
+			cudaMemset(realImg, 0, XRES * YRES * 3 * sizeof(float));
+			FILE* pFile;
+			char name[] = "fileXX.raw";
+			name[4] = fc / 10 + '0';
+			name[5] = fc % 10 + '0';
+			pFile = fopen(name, "wb");
+			fwrite(imgptr, sizeof(char), XRES * YRES * 3, pFile);
+			fclose(pFile);
+			printf("Saving...\n");
+			InitFrame();
+			fc++;
+		}*/
 	}
 }
-
-#endif
 
 DEVICE_PREFIX void SceneData::genCameraCoords()
 {
