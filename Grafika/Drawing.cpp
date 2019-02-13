@@ -296,11 +296,14 @@ void DrawFrame()
 
 DEVICE_PREFIX void SceneData::genCameraCoords()
 {
-	if (camXang > 2 * 6.28318f) camXang -= 6.28318f;
+	if (camXang > 6.28318f) camXang -= 6.28318f;
 	if (camXang < 0.0f) camXang += 6.28318f;
-	if (camYang > 2 * 6.28318f) camYang -= 6.28318f;
-	if (camYang < 0.0f) camYang += 6.28318f;
-
+	if (camYang >= 1.5707f && camYang < 3.14159f) camYang = 1.57f;
+	else {
+		if (camYang < 0.0f) camYang += 6.28318f;
+		//TODO doesnt work
+		if (camYang > 3.141592f && camYang <= 4.712388f) camYang = 4.714f;
+	}
 
 	c2S = Vector(0, 0, 1);
 

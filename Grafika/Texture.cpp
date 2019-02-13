@@ -71,7 +71,8 @@ DEVICE_PREFIX Color Texture::getColor(float x, float y, bool bilinear)
 }
 
 DEVICE_PREFIX void Texture::nearestTexGet(float x, float y, Color *ret) {
-	*ret = Color(data[(((int)y) * width + (int)x) * 3], data[(((int)y) * width + (int)x) * 3 + 1], data[(((int)y) * width + (int)x) * 3 + 2]);
+	if(x < width && y < height && x >= 0 && y >= 0)
+		*ret = Color(data[(((int)y) * width + (int)x) * 3], data[(((int)y) * width + (int)x) * 3 + 1], data[(((int)y) * width + (int)x) * 3 + 2]);
 }
 DEVICE_PREFIX void Texture::bilinearTexGet(float x, float y, Color *ret) {
 	int r, g, b;

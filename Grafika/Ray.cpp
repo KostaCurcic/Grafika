@@ -63,11 +63,12 @@ DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, float *t) const
 
 	Point col = o + d * tt;
 
-	c1 = (tr.e0 % (col - tr.v0)) * tr.n;
+	/*c1 = (tr.e0 % (col - tr.v0)) * tr.n;
 	c2 = (tr.e1 % (col - tr.v1)) * tr.n;
 	c3 = (tr.e2 % (col - tr.v2)) * tr.n;
 
-	if ((c1 <= 0.0001 && c2 <= 0.0001 && c3 <= 0.0001) || (c1 >= -0.0001 && c2 >= -0.0001 && c3 >= -0.0001)) {
+	if ((c1 <= 0.0001 && c2 <= 0.0001 && c3 <= 0.0001) || (c1 >= -0.0001 && c2 >= -0.0001 && c3 >= -0.0001)) {*/
+	if(tr.interpolatePoint(col, nullptr, nullptr, nullptr, nullptr, 0)){
 		if (t != nullptr) {
 			*t = tt;
 		}

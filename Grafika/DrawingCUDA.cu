@@ -86,7 +86,7 @@ void InitFrame()
 	}
 }
 
-__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, SceneData *sd, int iterations = 2) {
+__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, SceneData *sd, int iterations = 20) {
 
 	float t1, nearest = INFINITY;
 	bool mirror = false;
@@ -165,15 +165,19 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	Ray ray = Ray(sd->camera, pixelPoint);
 
 	if (sd->dofStr > 0.0001f) {
-		//Point focalPoint = ray.getPointFromT(focalDistance);
 		Point focalPoint = sd->camera + (Vector)(pixelPoint - sd->camera) * (1 + focalDistance / sd->camDist);
+
 		float pointMove = tanf(sd->dofStr) * focalDistance, xOff, yOff;
-		Point passPoint;
-		do {
+
+		float ang = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 6.28315f;
+		pointMove *= curand_uniform(state + ((xi * 100 + yi) % RANDGENS));
+		xOff = sinf(ang) * sqrtf(pointMove);
+		yOff = cosf(ang) * sqrtf(pointMove);
+		/*do {
 			xOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
 			yOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
-		} while (sqrtf(xOff * xOff + yOff * yOff) > pointMove);
-		passPoint = pixelPoint + sd->sR * xOff + sd->sD * yOff;
+		} while (sqrtf(xOff * xOff + yOff * yOff) > pointMove);*/
+		Point passPoint = pixelPoint + sd->sR * xOff + sd->sD * yOff;
 		ray = Ray(passPoint, focalPoint);
 	}
 
@@ -479,11 +483,14 @@ void DrawFrame()
 
 DEVICE_PREFIX void SceneData::genCameraCoords()
 {
-	if (camXang > 2 * 6.28318f) camXang -= 6.28318f;
+	if (camXang > 6.28318f) camXang -= 6.28318f;
 	if (camXang < 0.0f) camXang += 6.28318f;
-	if (camYang > 2 * 6.28318f) camYang -= 6.28318f;
-	if (camYang < 0.0f) camYang += 6.28318f;
-
+	if (camYang >= 1.5707f && camYang < 3.14159f) camYang = 1.57f;
+	else {
+		if (camYang < 0.0f) camYang += 6.28318f;
+		//TODO doesnt work
+		if (camYang > 3.141592f && camYang <= 4.712388f) camYang = 4.714f;
+	}
 
 	c2S = Vector(0, 0, 1);
 

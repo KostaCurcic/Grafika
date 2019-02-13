@@ -10,7 +10,7 @@ public:
 	DEVICE_PREFIX Triangle(Point, Point, Point);
 	DEVICE_PREFIX Vector Normal(Point&) const;
 
-	DEVICE_PREFIX void interpolatePoint(const Point &p, float *v0val, float *v1val, float *v2val, float *pval, int n) const;
+	DEVICE_PREFIX bool interpolatePoint(const Point &p, float *v0val, float *v1val, float *v2val, float *pval, int n) const;
 
 	/*DEVICE_PREFIX Point V0() const;
 	DEVICE_PREFIX Point V1() const;
