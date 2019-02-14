@@ -21,6 +21,7 @@ public:
 	bool bilinearTexture = true;
 
 	float expMultiplier;
+	unsigned short bounces = 20;
 
 	Light ambient;
 

@@ -61,7 +61,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.spheres[1].color.b = 100;
 	sd.spheres[1].mirror = true;
 
-	sd.lights[0] = Light(Sphere(Point(-100, 100, -50), 10), 0.2f);
+	sd.lights[0] = Light(Sphere(Point(-100, 50, -10), 15), 0.1f);
 	sd.lights[0].color.r = 239;
 	sd.lights[0].color.g = 163;
 	sd.lights[0].color.b = 56;
@@ -72,6 +72,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.triangles[0].t0 = Point(1, 0, 0);
 	sd.triangles[0].t1 = Point(0, 0, 0);
 	sd.triangles[0].t2 = Point(1, 1, 0);
+	//sd.triangles[0].mirror = true;
 
 	sd.triangles[1] = Triangle(Point(-7, -2, 0), Point(-7, -2, 21), Point(7, -2, 21));
 	sd.triangles[1].textured = true;
@@ -79,8 +80,14 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.triangles[1].t0 = Point(0, 0, 0);
 	sd.triangles[1].t1 = Point(0, 1, 0);
 	sd.triangles[1].t2 = Point(1, 1, 0);
+	//sd.triangles[1].mirror = true;
 
 	sd.triangles[2] = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
+	/*sd.triangles[2].textured = true;
+	sd.triangles[2].texIndex = 0;
+	sd.triangles[2].t0 = Point(0, 0, 0);
+	sd.triangles[2].t1 = Point(0.5f, 1, 0);
+	sd.triangles[2].t2 = Point(1, 0, 0);*/
 	sd.triangles[2].mirror = true;
 
 	InitDrawing(arr);
@@ -197,6 +204,12 @@ void key(WPARAM wParam, LPARAM lParam) {
 	}
 	if (wParam == 0x42) { //B
 		sd.bilinearTexture = !sd.bilinearTexture;
+	}
+	if (wParam == 0x30) { //0
+		sd.bounces += 1;
+	}
+	if (wParam == 0x39) { //9
+		sd.bounces -= 1;
 	}
 	InitFrame();
 }

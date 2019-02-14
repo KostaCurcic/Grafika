@@ -139,10 +139,11 @@ __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int i
 	}
 	else {
 		if (mirror) {
-			return traceRand(Ray(colPoint, ray.d.Reflect(colNormal)), sd, state, iterations - 1);
+			return colorMultiplier *= traceRand(Ray(colPoint, ray.d.Reflect(colNormal)), sd, state, iterations - 1);
 		}
 		else {
 			ray.o = colPoint;
+			if (ray.d * colNormal > 0) colNormal = -colNormal;
 			do {
 				ray.d.x = curand_uniform(state) * 2 - 1.0f;
 				ray.d.y = curand_uniform(state) * 2 - 1.0f;
@@ -233,10 +234,10 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 	Ray ray = Ray(sd->camera, pixelPoint);
 
-	if (sd->dofStr > 0.0001f) {
+	if (sd->dofStr > 0.000001f) {
 		Point focalPoint = sd->camera + (Vector)(pixelPoint - sd->camera) * (1 + focalDistance / sd->camDist);
 
-		float pointMove = tanf(sd->dofStr) * focalDistance, xOff, yOff;
+		float pointMove = sd->dofStr, xOff, yOff;
 
 		float ang = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 6.28315f;
 		pointMove *= curand_uniform(state + ((xi * 100 + yi) % RANDGENS));
@@ -255,7 +256,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 	Point colPoint;
 
-	*rm += traceRand(ray, sd, state + ((xi * XRES + yi + 3)) % RANDGENS);
+	*rm += traceRand(ray, sd, state + ((xi * XRES + yi + 3) + (iter* 123)) % RANDGENS, sd->bounces);
 	*pix = rm->getPixColor(sd->gamma, sd->expMultiplier / iter);
 
 	return;
