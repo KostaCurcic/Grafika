@@ -39,6 +39,7 @@ void InitFrame()
 {
 
 	sd.genCameraCoords();
+	devSdCopy = sd.genDeviceData(devSpheres, devTriangles, devLights, devTextures);
 
 	cudaError_t cudaStatus = cudaMemcpy(devSpheres, sd.spheres, sd.nSpheres * sizeof(Sphere), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
@@ -64,13 +65,6 @@ void InitFrame()
 		return;
 	}
 
-	memcpy(&devSdCopy, &sd, sizeof(SceneData));
-	devSdCopy.lights = devLights;
-	devSdCopy.triangles = devTriangles;
-	devSdCopy.spheres = devSpheres;
-	devSdCopy.textures = devTextures;
-
-
 	cudaStatus = cudaMemcpy(devSd, &devSdCopy, sizeof(SceneData), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMemcpy failed!");
@@ -86,13 +80,88 @@ void InitFrame()
 	}
 }
 
-__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, SceneData *sd, int iterations = 20) {
+__device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int iterations = 20) {
+	float t1, nearest = INFINITY;
+	ColorReal colorMultiplier(1, 1, 1);
+	Color colGet;
+	Point colPoint;
+	Vector colNormal;
+	GraphicsObject *colObj;
+	bool mirror = false;
+
+	if (iterations <= 0) {
+		return ColorReal(0, 0, 0);
+	}
+
+	for (int i = 0; i < sd->nSpheres; i++) {
+		if (ray.intersects(sd->spheres[i], &colGet, &t1, nullptr)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				colPoint = ray.getPointFromT(t1);
+				colNormal = sd->spheres[i].Normal(colPoint);
+				colObj = sd->spheres + i;
+				mirror = sd->spheres[i].mirror;
+				colorMultiplier = colGet.getRefMultiplier(sd->gamma);
+			}
+		}
+	}
+
+	for (int i = 0; i < sd->nLights; i++) {
+		if (ray.intersects(sd->lights[i], &colGet, &t1)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				colPoint = ray.getPointFromT(t1);
+				colNormal = sd->lights[i].Normal(colPoint);
+				colObj = sd->lights + i;
+				colorMultiplier = colGet.getColorIntensity(sd->gamma) * sd->lights[i].intenisty;
+			}
+		}
+	}
+
+	for (int i = 0; i < sd->nTriangles; i++) {
+		if (ray.intersects(sd->triangles[i], &colGet, &t1)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				colPoint = ray.getPointFromT(t1);
+				colNormal = sd->triangles[i].n;
+				colObj = sd->triangles + i;
+				mirror = sd->triangles[i].mirror;
+				colorMultiplier = colGet.getRefMultiplier(sd->gamma);
+			}
+		}
+	}
+
+	if (nearest == INFINITY) {
+		return sd->ambient.color.getColorIntensity(sd->gamma) * sd->ambient.intenisty;
+	}
+	else if (colObj->shape == LIGHT) {
+		return colorMultiplier;
+	}
+	else {
+		if (mirror) {
+			return traceRand(Ray(colPoint, ray.d.Reflect(colNormal)), sd, state, iterations - 1);
+		}
+		else {
+			ray.o = colPoint;
+			do {
+				ray.d.x = curand_uniform(state) * 2 - 1.0f;
+				ray.d.y = curand_uniform(state) * 2 - 1.0f;
+				ray.d.z = curand_uniform(state) * 2 - 1.0f;
+				ray.d.Normalize();
+				if (ray.d * colNormal <= 0) ray.d = -ray.d;
+			} while (ray.d * colNormal <= curand_uniform(state));
+			return colorMultiplier *= traceRand(ray, sd, state, iterations - 1);
+		}
+	}
+}
+
+__device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject **colObj, SceneData *sd, int iterations = 3) {
 
 	float t1, nearest = INFINITY;
 	bool mirror = false;
 
 	for (int i = 0; i < sd->nSpheres; i++) {
-		if (ray.intersects(sd->spheres[i], &t1, nullptr)) {
+		if (ray.intersects(sd->spheres[i], nullptr, &t1, nullptr)) {
 			if (t1 < nearest && t1 > 0.001) {
 				nearest = t1;
 				*colPoint = ray.getPointFromT(t1);
@@ -104,7 +173,7 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 	}
 
 	for (int i = 0; i < sd->nLights; i++) {
-		if (ray.intersects(sd->lights[i], &t1)) {
+		if (ray.intersects(sd->lights[i], nullptr, &t1)) {
 			if (t1 < nearest && t1 > 0.001) {
 				nearest = t1;
 				*colPoint = ray.getPointFromT(t1);
@@ -115,7 +184,7 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 	}
 
 	for (int i = 0; i < sd->nTriangles; i++) {
-		if (ray.intersects(sd->triangles[i], &t1)) {
+		if (ray.intersects(sd->triangles[i], nullptr, &t1)) {
 			if (t1 < nearest && t1 > 0.001) {
 				nearest = t1;
 				*colPoint = ray.getPointFromT(t1);
@@ -150,8 +219,8 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	float x = (xi * 2.0f + curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)) * 2.0f) / YRES - XRES / (float)YRES;
 	float y = (yi * 2.0f + curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)) * 2.0f) / YRES - 1.0;
 
-	char *pix = ptr + (yi * XRES + xi) * 3;
-	float *rm = realMap + (yi * XRES + xi) * 3;
+	Color *pix = (Color*)(ptr + (yi * XRES + xi) * 3);
+	ColorReal *rm = (ColorReal*)(realMap + (yi * XRES + xi) * 3);
 
 	//Point pixelPoint = Point(10 + x, y, 0);
 
@@ -186,67 +255,9 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 	Point colPoint;
 
-	float rMulR = 1.0f, rMulG = 1.0f, rMulB = 1.0f;
+	*rm += traceRand(ray, sd, state + ((xi * XRES + yi + 3)) % RANDGENS);
+	*pix = rm->getPixColor(sd->gamma, sd->expMultiplier / iter);
 
-	int bounceCount = 5;
-
-	for (bounceCount = 5; bounceCount > 0; bounceCount--) {
-		if (!findColPoint(ray, &colPoint, &normal, &obj, sd)) {
-
-			rm[0] += powf(sd->ambient.color.r, sd->gamma) * sd->ambient.intenisty * rMulR;
-			rm[1] += powf(sd->ambient.color.g, sd->gamma) * sd->ambient.intenisty * rMulG;
-			rm[2] += powf(sd->ambient.color.b, sd->gamma) * sd->ambient.intenisty * rMulB;
-			break;
-		}
-		else {
-			if (obj->shape == LIGHT) {
-
-				rm[0] += powf(obj->color.r, sd->gamma) * ((Light*)obj)->intenisty * rMulR;
-				rm[1] += powf(obj->color.g, sd->gamma) * ((Light*)obj)->intenisty * rMulG;
-				rm[2] += powf(obj->color.b, sd->gamma) * ((Light*)obj)->intenisty * rMulB;
-				break;
-			}
-			else {
-
-
-				float bMax = powf(255.0f, sd->gamma);
-				if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
-					float coords[] = { 0, 0 };
-					((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
-					Color c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1], sd->bilinearTexture);
-					rMulR *= powf(c.r, sd->gamma) / bMax;
-					rMulG *= powf(c.g, sd->gamma) / bMax;
-					rMulB *= powf(c.b, sd->gamma) / bMax;
-				}
-				else {
-					rMulR *= powf(obj->color.r, sd->gamma) / bMax;
-					rMulG *= powf(obj->color.g, sd->gamma) / bMax;
-					rMulB *= powf(obj->color.b, sd->gamma) / bMax;
-				}
-
-				ray.o = colPoint;
-				do {
-					ray.d.x = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f;
-					ray.d.y = curand_uniform(state + ((xi * 100 + yi + 1) % RANDGENS)) * 2 - 1.0f;
-					ray.d.z = curand_uniform(state + ((xi * 100 + yi + 2) % RANDGENS)) * 2 - 1.0f;
-					ray.d.Normalize();
-					if (ray.d * normal <= 0) ray.d = -ray.d;
-				} while (ray.d * normal <= curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)));
-			}
-		}
-	}
-
-	c1 = powf(rm[0] / iter * sd->expMultiplier, 1.0f / sd->gamma);
-	c2 = powf(rm[1] / iter * sd->expMultiplier, 1.0f / sd->gamma);
-	c3 = powf(rm[2] / iter * sd->expMultiplier, 1.0f / sd->gamma);
-
-	if (c1 > 255) c1 = 255;
-	if (c2 > 255) c2 = 255;
-	if (c3 > 255) c3 = 255;
-
-	pix[0] = c1;
-	pix[1] = c2;
-	pix[2] = c3;
 	return;
 }
 
@@ -259,14 +270,14 @@ __device__ float pointLit(Point &p, Vector n, GraphicsObject* self, SceneData *s
 		if (n * ray.d > 0) {
 			col = false;
 			for (int j = 0; j < sd->nSpheres; j++) {
-				if (sd->spheres + j != self && ray.intersects(sd->spheres[j], &t) && t > 0.0001) {
+				if (sd->spheres + j != self && ray.intersects(sd->spheres[j], nullptr, &t) && t > 0.0001) {
 					col = true;
 					break;
 				}
 			}
 			if (!col) {
 				for (int j = 0; j < sd->nTriangles; j++) {
-					if (sd->triangles + j != self && ray.intersects(sd->triangles[j], &t) && t > 0.0001) {
+					if (sd->triangles + j != self && ray.intersects(sd->triangles[j], nullptr, &t) && t > 0.0001) {
 						col = true;
 						break;
 					}
@@ -504,11 +515,28 @@ DEVICE_PREFIX void SceneData::genCameraCoords()
 
 }
 
+DEVICE_PREFIX SceneData SceneData::genDeviceData(Sphere *devS, Triangle *devTr, Light *devL, Texture *devTe)
+{
+	SceneData ret = *this;
+	for (int i = 0; i < nTriangles; i++) {
+		ret.triangles[i].tex = devTe + triangles[i].texIndex;
+	}
+
+	ret.lights = devL;
+	ret.triangles = devTr;
+	ret.spheres = devS;
+	ret.textures = devTe;
+	return ret;
+}
+
+void SceneData::assignPointersHost() {};
+
 #include "Point.cpp"
 #include "Ray.cpp"
 #include "Sphere.cpp"
 #include "Texture.cpp"
 #include "Triangle.cpp"
 #include "Vector.cpp"
+#include "Color.cpp"
 
 #endif

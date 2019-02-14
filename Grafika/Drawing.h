@@ -42,6 +42,8 @@ public:
 	float gamma = 2.224f;
 
 	DEVICE_PREFIX void genCameraCoords();
+	DEVICE_PREFIX SceneData genDeviceData(Sphere *, Triangle*, Light*, Texture*);
+	void assignPointersHost();
 
 };
 

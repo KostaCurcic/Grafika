@@ -61,7 +61,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.spheres[1].color.b = 100;
 	sd.spheres[1].mirror = true;
 
-	sd.lights[0] = Light(Sphere(Point(-100, 100, -50), 10), .2f);
+	sd.lights[0] = Light(Sphere(Point(-100, 100, -50), 10), 0.2f);
 	sd.lights[0].color.r = 239;
 	sd.lights[0].color.g = 163;
 	sd.lights[0].color.b = 56;

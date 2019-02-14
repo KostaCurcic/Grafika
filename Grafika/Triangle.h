@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Vector.h"
+#include "Texture.h"
 #include "GraphicsObject.h"
 
 class Triangle : public GraphicsObject
@@ -26,6 +27,7 @@ public:
 
 	bool textured = false;
 	int texIndex = 0;
+	Texture *tex;
 	Point t0, t1, t2;
 
 private:

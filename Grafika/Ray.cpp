@@ -22,7 +22,7 @@ DEVICE_PREFIX Ray::Ray(Point p1, Vector vec)
 	d = vec.Normalize();
 }
 
-DEVICE_PREFIX bool Ray::intersects(const Sphere &s, float *c1, float *c2) const
+DEVICE_PREFIX bool Ray::intersects(const Sphere &s, Color* col, float *c1, float *c2) const
 {
 	float b = 2 * (d * (o - s.c));
 	float c = powf(((Vector)(o - s.c)).Length(), 2) - s.r * s.r;
@@ -46,12 +46,13 @@ DEVICE_PREFIX bool Ray::intersects(const Sphere &s, float *c1, float *c2) const
 		else {
 			if (c1 != nullptr) *c1 = t2;
 			if (c2 != nullptr) *c2 = t1;
-			return true;
 		}
+		if(col != nullptr) *col = s.color;
+		return true;
 	}
 }
 
-DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, float *t) const
+DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, Color* col, float *t) const
 {
 	if (tr.n * d == 0) return false;
 
@@ -61,36 +62,41 @@ DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, float *t) const
 
 	if (tt < 0) return false;
 
-	Point col = o + d * tt;
+	Point colp = o + d * tt;
 
-	/*c1 = (tr.e0 % (col - tr.v0)) * tr.n;
-	c2 = (tr.e1 % (col - tr.v1)) * tr.n;
-	c3 = (tr.e2 % (col - tr.v2)) * tr.n;
+	float weigths[2];
 
-	if ((c1 <= 0.0001 && c2 <= 0.0001 && c3 <= 0.0001) || (c1 >= -0.0001 && c2 >= -0.0001 && c3 >= -0.0001)) {*/
-	if(tr.interpolatePoint(col, nullptr, nullptr, nullptr, nullptr, 0)){
+	if(tr.interpolatePoint(colp, (float*)&(tr.t0), (float*)&(tr.t1), (float*)&(tr.t2), weigths, 2)){
 		if (t != nullptr) {
 			*t = tt;
+		}
+		if (col != nullptr) {
+			if (tr.textured) {
+				*col = tr.tex->getColor(weigths[0], weigths[1]);
+			}
+			else {
+				*col = tr.color;
+			}
 		}
 		return true;
 	}
 	return false;
 }
 
-DEVICE_PREFIX bool Ray::intersects(const Light &l, float *t) const
+DEVICE_PREFIX bool Ray::intersects(const Light &l, Color* col, float *t) const
 {
-	return intersects((Sphere)l, t);
+	return intersects((Sphere)l, col, t);
 }
 
-DEVICE_PREFIX bool Ray::intersects(const GraphicsObject *g, float *t) const
+DEVICE_PREFIX bool Ray::intersects(const GraphicsObject *g, Color* col, float *t) const
 {
 	switch (g->shape)
 	{
 	case TRIANGLE:
-		return intersects(*((Triangle*)g), t);
+		return intersects(*((Triangle*)g), col, t);
 	case SPHERE:
 	case LIGHT:
-		return intersects(*((Sphere*)g), t);
+		return intersects(*((Sphere*)g), col, t);
 	}
 }
 
