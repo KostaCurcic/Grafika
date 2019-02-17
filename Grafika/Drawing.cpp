@@ -7,7 +7,7 @@
 #include <Windows.h>
 
 //#define NONRT
-#define THRCOUNT 8
+#define THRCOUNT 4
 
 float angle = 0;
 char *imgptr;
@@ -37,7 +37,7 @@ void InitFrame()
 ColorReal traceRand(Ray ray, int iterations = 20) {
 	float t1, nearest = INFINITY;
 	ColorReal colorMultiplier(1, 1, 1);
-	Color colGet;
+	ColorReal colGet;
 	Point colPoint;
 	Vector colNormal;
 	GraphicsObject *colObj;
@@ -55,7 +55,7 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 				colNormal = sd.spheres[i].Normal(colPoint);
 				colObj = sd.spheres + i;
 				mirror = sd.spheres[i].mirror;
-				colorMultiplier = colGet.getRefMultiplier(sd.gamma);
+				colorMultiplier = colGet.getColorIntesity(sd.gamma);
 			}
 		}
 	}
@@ -67,7 +67,7 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 				colPoint = ray.getPointFromT(t1);
 				colNormal = sd.lights[i].Normal(colPoint);
 				colObj = sd.lights + i;
-				colorMultiplier = colGet.getColorIntensity(sd.gamma) * sd.lights[i].intenisty;
+				colorMultiplier = colGet.getColorIntesity(sd.gamma) * sd.lights[i].intenisty;
 			}
 		}
 	}
@@ -80,13 +80,13 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 				colNormal = sd.triangles[i].n;
 				colObj = sd.triangles + i;
 				mirror = sd.triangles[i].mirror;
-				colorMultiplier = colGet.getRefMultiplier(sd.gamma);
+				colorMultiplier = colGet.getColorIntesity(sd.gamma);
 			}
 		}
 	}
 
 	if (nearest == INFINITY) {
-		return sd.ambient.color.getColorIntensity(sd.gamma) * sd.ambient.intenisty;
+		return sd.ambient.color.getColorIntesity(sd.gamma) * sd.ambient.intenisty;
 	}
 	else if (colObj->shape == LIGHT) {
 		return colorMultiplier;
@@ -290,6 +290,9 @@ void drawPixel(float x, float y, char *pix) {
 
 	Ray ray = Ray(sd.camera, pixelPoint);
 
+	Color *px = (Color*)pix;
+	ColorReal ret;
+
 	float light;
 
 	Point colPoint;
@@ -299,25 +302,19 @@ void drawPixel(float x, float y, char *pix) {
 		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
 			float coords[] = { 0, 0 };
 			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
-			Color c = sd.textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
+			ColorReal c = sd.textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
 
-			pix[0] = c.r * light;
-			pix[1] = c.g * light;
-			pix[2] = c.b * light;
+			ret = c * light;
 		}
 		else 
 		{
-			pix[0] = obj->color.r * light;
-			pix[1] = obj->color.g * light;
-			pix[2] = obj->color.b * light;
+			ret = obj->color * light;
 		}
 	}
 	else {
-		pix[0] = 40;
-		pix[1] = 120;
-		pix[2] = 240;
-
+		ret = sd.ambient.color;
 	}
+	*px = ret.getPixColor();
 }
 
 void DrawFrame()

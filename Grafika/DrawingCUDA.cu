@@ -83,7 +83,7 @@ void InitFrame()
 __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int iterations = 20) {
 	float t1, nearest = INFINITY;
 	ColorReal colorMultiplier(1, 1, 1);
-	Color colGet;
+	ColorReal colGet;
 	Point colPoint;
 	Vector colNormal;
 	GraphicsObject *colObj;
@@ -101,7 +101,7 @@ __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int i
 				colNormal = sd->spheres[i].Normal(colPoint);
 				colObj = sd->spheres + i;
 				mirror = sd->spheres[i].mirror;
-				colorMultiplier = colGet.getRefMultiplier(sd->gamma);
+				colorMultiplier = colGet.getColorIntesity(sd->gamma);
 			}
 		}
 	}
@@ -113,7 +113,7 @@ __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int i
 				colPoint = ray.getPointFromT(t1);
 				colNormal = sd->lights[i].Normal(colPoint);
 				colObj = sd->lights + i;
-				colorMultiplier = colGet.getColorIntensity(sd->gamma) * sd->lights[i].intenisty;
+				colorMultiplier = colGet.getColorIntesity(sd->gamma) * sd->lights[i].intenisty;
 			}
 		}
 	}
@@ -126,13 +126,13 @@ __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int i
 				colNormal = sd->triangles[i].n;
 				colObj = sd->triangles + i;
 				mirror = sd->triangles[i].mirror;
-				colorMultiplier = colGet.getRefMultiplier(sd->gamma);
+				colorMultiplier = colGet.getColorIntesity(sd->gamma);
 			}
 		}
 	}
 
 	if (nearest == INFINITY) {
-		return sd->ambient.color.getColorIntensity(sd->gamma) * sd->ambient.intenisty;
+		return sd->ambient.color.getColorIntesity(sd->gamma) * sd->ambient.intenisty;
 	}
 	else if (colObj->shape == LIGHT) {
 		return colorMultiplier;
@@ -301,16 +301,18 @@ __global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
 	float x = xi * 2.0f / YRES - XRES / (float)YRES;
 	float y = yi * 2.0 / YRES - 1.0;
 
-	char *pix = ptr + (yi * XRES + xi) * 3;
+	Color *pix = (Color*)(ptr + (yi * XRES + xi) * 3);
 
 	Point pixelPoint = sd->camera + sd->c2S + sd->sR * x + sd->sD * y;
+
+	ColorReal color;
 
 	Vector normal;
 	GraphicsObject *obj;
 
 	Ray ray = Ray(sd->camera, pixelPoint);
 
-	float light;
+	float light = 1.0f;
 
 	Point colPoint;
 
@@ -321,27 +323,18 @@ __global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
 		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
 			float coords[] = { 0, 0 };
 			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
-			Color c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1], sd->bilinearTexture);
+			ColorReal c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1], false);
 
-			pix[0] = c.r * light + 8 * (1 - light);
-			pix[1] = c.g * light + 24 * (1 - light);
-			pix[2] = c.b * light + 48 * (1 - light);
+			color = c * light + sd->ambient.color * (1 - light);
 		}
 		else {
-
-			pix[0] = obj->color.r * light + sd->ambient.color.r * (1 - light);
-			pix[1] = obj->color.g * light + sd->ambient.color.g * (1 - light);
-			pix[2] = obj->color.b * light + sd->ambient.color.b * (1 - light);
-
+			color = obj->color * light + sd->ambient.color * (1 - light);
 		}
 	}
 	else{
-		pix[0] = 40;
-		pix[1] = 120;
-		pix[2] = 240;
-
+		color = sd->ambient.color;
 	}
-
+	*pix = color.getPixColor();
 }
 
 void InitDrawing(char * ptr)

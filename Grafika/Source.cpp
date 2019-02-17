@@ -36,12 +36,12 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.focalDistance = 5.0f;
 	sd.gamma = 2.224f;
 
-	sd.ambient.color.r = 18;
-	sd.ambient.color.g = 42;
-	sd.ambient.color.b = 55;
+	sd.ambient.color.r = 0.52f;
+	sd.ambient.color.g = 0.80f;
+	sd.ambient.color.b = 0.92f;
 	sd.ambient.intenisty = .01f;
 
-	/*sd.nLights = 1;
+	sd.nLights = 1;
 	sd.nSpheres = 2;
 	sd.nTriangles = 3;
 	sd.nTextures = 1;
@@ -57,15 +57,15 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.spheres[0].mirror = true;
 
 	sd.spheres[1] = Sphere(Point(5, -1, 5), 1);
-	sd.spheres[1].color.r = 50;
-	sd.spheres[1].color.g = 200;
-	sd.spheres[1].color.b = 100;
-	sd.spheres[1].mirror = true;
+	sd.spheres[1].color.r = 0.0f;
+	sd.spheres[1].color.g = 1.0f;
+	sd.spheres[1].color.b = 0.0f;
+	//sd.spheres[1].mirror = true;
 
-	sd.lights[0] = Light(Sphere(Point(-100, 50, -10), 15), 0.1f);
-	sd.lights[0].color.r = 239;
-	sd.lights[0].color.g = 163;
-	sd.lights[0].color.b = 56;
+	sd.lights[0] = Light(Sphere(Point(-100, 50, -10), 15), 1.0f);
+	sd.lights[0].color.r = 0.94f;
+	sd.lights[0].color.g = 0.7f;
+	sd.lights[0].color.b = 0.2f;
 
 	sd.triangles[0] = Triangle(Point(7, -2, 0), Point(-7, -2, 0), Point(7, -2, 21));
 	sd.triangles[0].textured = true;
@@ -84,9 +84,9 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	//sd.triangles[1].mirror = true;
 
 	sd.triangles[2] = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
-	sd.triangles[2].mirror = true;*/
+	//sd.triangles[2].mirror = true;
 
-	SceneLoader sl;
+	/*SceneLoader sl;
 	sl.loadObj(R"(C:\Users\Kosta\Desktop\Untitled.obj)", Point(0, 0, 10));
 
 	Light l1 = Light(Sphere(Point(-100, 50, -10), 15), 0.1f);
@@ -104,7 +104,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 
 	sl.addTexture(Texture(R"(..\tile.bmp)"));
 
-	sl.finalize(sd);
+	sl.finalize(sd);*/
 
 	InitDrawing(arr);
 
@@ -271,5 +271,5 @@ int main() {
 		EVENTFUNC {WM_CREATE, initial},
 	};
 
-	DoGL(3, functions, 1536, 864);
+	DoGL(3, functions, 1920, 1080);
 }

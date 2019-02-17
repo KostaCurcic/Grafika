@@ -22,7 +22,7 @@ DEVICE_PREFIX Ray::Ray(Point p1, Vector vec)
 	d = vec.Normalize();
 }
 
-DEVICE_PREFIX bool Ray::intersects(const Sphere &s, Color* col, float *c1, float *c2) const
+DEVICE_PREFIX bool Ray::intersects(const Sphere &s, ColorReal* col, float *c1, float *c2) const
 {
 	float b = 2 * (d * (o - s.c));
 	float c = powf(((Vector)(o - s.c)).Length(), 2) - s.r * s.r;
@@ -52,7 +52,7 @@ DEVICE_PREFIX bool Ray::intersects(const Sphere &s, Color* col, float *c1, float
 	}
 }
 
-DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, Color* col, float *t) const
+DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, ColorReal* col, float *t) const
 {
 	if (tr.n * d == 0) return false;
 
@@ -83,12 +83,12 @@ DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, Color* col, float *t) con
 	return false;
 }
 
-DEVICE_PREFIX bool Ray::intersects(const Light &l, Color* col, float *t) const
+DEVICE_PREFIX bool Ray::intersects(const Light &l, ColorReal* col, float *t) const
 {
 	return intersects((Sphere)l, col, t);
 }
 
-DEVICE_PREFIX bool Ray::intersects(const GraphicsObject *g, Color* col, float *t) const
+DEVICE_PREFIX bool Ray::intersects(const GraphicsObject *g, ColorReal* col, float *t) const
 {
 	switch (g->shape)
 	{

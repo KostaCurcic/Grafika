@@ -16,11 +16,11 @@ public:
 
 	DEVICE_PREFIX GraphicsObject() {
 		mirror = false;
-		color = Color(220, 220, 220);
+		color = ColorReal(1, 1, 1);
 	}
 
 	EShape shape;
-	Color color;
+	ColorReal color;
 	bool mirror;
 	//virtual DEVICE_PREFIX Vector Normal(Point&) const = 0;
 

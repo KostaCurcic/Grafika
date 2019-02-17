@@ -12,13 +12,13 @@ public:
 
 	void load(const char *filename);
 
-	DEVICE_PREFIX Color getColor(float x, float y, bool bilinear = true);
+	DEVICE_PREFIX ColorReal getColor(float x, float y, bool bilinear = true);
 
 	int width, height;
 
-	unsigned char* data;
+	float* data;
 
 private:
-	DEVICE_PREFIX void nearestTexGet(float, float, Color*);
-	DEVICE_PREFIX void bilinearTexGet(float, float, Color*);
+	DEVICE_PREFIX void nearestTexGet(float, float, ColorReal*);
+	DEVICE_PREFIX void bilinearTexGet(float, float, ColorReal*);
 };

@@ -38,44 +38,59 @@ void Texture::load(const char * filename)
 	height = *(int*)&info[22];
 
 	int size = 3 * width * height;
-	data = (unsigned char*)malloc(size); // allocate 3 bytes per pixel
-	fread(data, sizeof(unsigned char), size, f); // read the rest of the data at once
-	fclose(f);
+	data = (float*)malloc(size * sizeof(float)); // allocate 3 bytes per pixel
+	unsigned char temp[3];
 
 	for (i = 0; i < size; i += 3)
 	{
-		unsigned char tmp = data[i];
-		data[i] = data[i + 2];
-		data[i + 2] = tmp;
+		fread(temp, sizeof(unsigned char), 3, f);
+		data[i] = temp[2] / 255.0f;
+		data[i + 1] = temp[1] / 255.0f;
+		data[i + 2] = temp[0] / 255.0f;
 	}
+	fclose(f);
 
 	#ifdef CUDA
-		unsigned char* devData;
-		cudaMalloc(&devData, size);
+		float* devData;
+		cudaMalloc(&devData, size * sizeof(float));
 
-		cudaMemcpy(devData, data, size, cudaMemcpyHostToDevice);
+		cudaMemcpy(devData, data, size * sizeof(float), cudaMemcpyHostToDevice);
 
 		free(data);
 		data = devData;
 	#endif
 }
 
-DEVICE_PREFIX Color Texture::getColor(float x, float y, bool bilinear)
+DEVICE_PREFIX ColorReal Texture::getColor(float x, float y, bool bilinear)
 {
 	float xc = (x * width);
 	float yc = (y * height);
-	Color ret;
+
+	while (xc >= (float)width) {
+		xc -= width;
+	}
+	while (xc < 0) {
+		xc += width;
+	}
+	while (yc >= (float)height) {
+		yc -= height;
+	}
+	while (yc < 0) {
+		yc += height;
+	}
+
+	ColorReal ret;
 	if (bilinear) bilinearTexGet(xc, yc, &ret);
 	else nearestTexGet(xc, yc, &ret);
 	return ret;
 }
 
-DEVICE_PREFIX void Texture::nearestTexGet(float x, float y, Color *ret) {
+DEVICE_PREFIX void Texture::nearestTexGet(float x, float y, ColorReal *ret) {
 	if(x < width && y < height && x >= 0 && y >= 0)
-		*ret = Color(data[(((int)y) * width + (int)x) * 3], data[(((int)y) * width + (int)x) * 3 + 1], data[(((int)y) * width + (int)x) * 3 + 2]);
+		*ret = ColorReal(data[(((int)y) * width + (int)x) * 3], data[(((int)y) * width + (int)x) * 3 + 1], data[(((int)y) * width + (int)x) * 3 + 2]);
 }
-DEVICE_PREFIX void Texture::bilinearTexGet(float x, float y, Color *ret) {
-	int r, g, b;
+DEVICE_PREFIX void Texture::bilinearTexGet(float x, float y, ColorReal *ret) {
+	float r, g, b;
 	int xc = (int)x, yc = (int)y;
 
 	if (xc >= width - 2 || yc >= height - 2) {
@@ -92,5 +107,5 @@ DEVICE_PREFIX void Texture::bilinearTexGet(float x, float y, Color *ret) {
 	g = (data[yc * width + xc + 1] * (1 - xOff) + data[yc * width + xc + 4] * xOff)	* (1 - yOff) + (data[(yc + 3) * width + xc + 1] * (1 - xOff) + data[(yc + 3) * width + xc + 4] * xOff) * yOff;
 	b = (data[yc * width + xc + 2] * (1 - xOff) + data[yc * width + xc + 5] * xOff)	* (1 - yOff) + (data[(yc + 3) * width + xc + 2] * (1 - xOff) + data[(yc + 3) * width + xc + 5] * xOff) * yOff;
 
-	*ret = Color(r, g, b);
+	*ret = ColorReal(r, g, b);
 }
