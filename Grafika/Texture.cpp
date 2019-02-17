@@ -15,7 +15,7 @@ Texture::Texture(const char * filename)
 	load(filename);
 }
 
-Texture::~Texture()
+void Texture::Unload()
 {
 	if (data != nullptr) {
 		#ifdef CUDA

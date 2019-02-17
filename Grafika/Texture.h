@@ -8,7 +8,7 @@ class Texture
 public:
 	Texture();
 	Texture(const char *filename);
-	~Texture();
+	void Unload();
 
 	void load(const char *filename);
 

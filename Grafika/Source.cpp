@@ -7,6 +7,7 @@
 
 #include "GLInit.h"
 #include "Drawing.h"
+#include "SceneLoader.h"
 
 GLuint tex;
 char *arr, *tarr;
@@ -35,15 +36,15 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.focalDistance = 5.0f;
 	sd.gamma = 2.224f;
 
-	sd.nLights = 1;
-	sd.nSpheres = 2;
-	sd.nTriangles = 3;
-	sd.nTextures = 1;
-
 	sd.ambient.color.r = 18;
 	sd.ambient.color.g = 42;
 	sd.ambient.color.b = 55;
 	sd.ambient.intenisty = .01f;
+
+	/*sd.nLights = 1;
+	sd.nSpheres = 2;
+	sd.nTriangles = 3;
+	sd.nTextures = 1;
 
 	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
 	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
@@ -83,12 +84,27 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	//sd.triangles[1].mirror = true;
 
 	sd.triangles[2] = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
-	/*sd.triangles[2].textured = true;
-	sd.triangles[2].texIndex = 0;
-	sd.triangles[2].t0 = Point(0, 0, 0);
-	sd.triangles[2].t1 = Point(0.5f, 1, 0);
-	sd.triangles[2].t2 = Point(1, 0, 0);*/
-	sd.triangles[2].mirror = true;
+	sd.triangles[2].mirror = true;*/
+
+	SceneLoader sl;
+	sl.loadObj(R"(C:\Users\Kosta\Desktop\Untitled.obj)", Point(0, 0, 10));
+
+	Light l1 = Light(Sphere(Point(-100, 50, -10), 15), 0.1f);
+	l1.color.r = 239;
+	l1.color.g = 163;
+	l1.color.b = 56;
+	sl.addLight(l1);
+
+	Sphere s1 = Sphere(Point(5, -1, 5), 1);
+	s1.color.r = 50;
+	s1.color.g = 200;
+	s1.color.b = 100;
+	s1.mirror = true;
+	sl.addSphere(s1);
+
+	sl.addTexture(Texture(R"(..\tile.bmp)"));
+
+	sl.finalize(sd);
 
 	InitDrawing(arr);
 
@@ -255,5 +271,5 @@ int main() {
 		EVENTFUNC {WM_CREATE, initial},
 	};
 
-	DoGL(3, functions, 1920, 1080);
+	DoGL(3, functions, 1536, 864);
 }
