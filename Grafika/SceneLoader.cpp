@@ -11,6 +11,7 @@ void SceneLoader::loadObj(const char *path, const Point & offset)
 {
 	ifstream file(path);
 	string line, op;
+	vertecies.clear();
 
 	while (getline(file, line)) {
 		stringstream ss(line);

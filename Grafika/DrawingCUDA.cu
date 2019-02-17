@@ -325,10 +325,10 @@ __global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
 			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
 			ColorReal c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1], false);
 
-			color = c * light + sd->ambient.color * (1 - light);
+			color = c * light;
 		}
 		else {
-			color = obj->color * light + sd->ambient.color * (1 - light);
+			color = obj->color * light;
 		}
 	}
 	else{

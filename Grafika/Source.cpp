@@ -31,17 +31,17 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.camera = Point(0, 0, -2);
 	sd.genCameraCoords();
 
-	sd.expMultiplier = 1000;
+	sd.expMultiplier = 20000;
 	sd.dofStr = 0.005f;
 	sd.focalDistance = 5.0f;
 	sd.gamma = 2.224f;
 
-	sd.ambient.color.r = 0.52f;
-	sd.ambient.color.g = 0.80f;
-	sd.ambient.color.b = 0.92f;
-	sd.ambient.intenisty = .01f;
+	sd.ambient.color.r = 0.20f;
+	sd.ambient.color.g = 0.46f;
+	sd.ambient.color.b = 0.60f;
+	sd.ambient.intenisty = .04f;
 
-	sd.nLights = 1;
+	/*sd.nLights = 1;
 	sd.nSpheres = 2;
 	sd.nTriangles = 3;
 	sd.nTextures = 1;
@@ -84,27 +84,53 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	//sd.triangles[1].mirror = true;
 
 	sd.triangles[2] = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
-	//sd.triangles[2].mirror = true;
+	sd.triangles[2].mirror = true;*/
 
-	/*SceneLoader sl;
+	SceneLoader sl;
 	sl.loadObj(R"(C:\Users\Kosta\Desktop\Untitled.obj)", Point(0, 0, 10));
 
-	Light l1 = Light(Sphere(Point(-100, 50, -10), 15), 0.1f);
-	l1.color.r = 239;
-	l1.color.g = 163;
-	l1.color.b = 56;
+	Light l1 = Light(Sphere(Point(-100, 50, -10), 15), 2.0f);
+	l1.color.r = 0.94f;
+	l1.color.g = 0.7f;
+	l1.color.b = 0.2f;
 	sl.addLight(l1);
 
 	Sphere s1 = Sphere(Point(5, -1, 5), 1);
-	s1.color.r = 50;
-	s1.color.g = 200;
-	s1.color.b = 100;
+	s1.color.r = 0.0f;
+	s1.color.g = 1.0f;
+	s1.color.b = 0.0f;
 	s1.mirror = true;
 	sl.addSphere(s1);
 
 	sl.addTexture(Texture(R"(..\tile.bmp)"));
 
-	sl.finalize(sd);*/
+	Triangle t1 = Triangle(Point(7, -2, 0), Point(-7, -2, 0), Point(7, -2, 21));
+	t1.textured = true;
+	t1.texIndex = 0;
+	t1.t0 = Point(1, 0, 0);
+	t1.t1 = Point(0, 0, 0);
+	t1.t2 = Point(1, 1, 0);
+	//t1.mirror = true;
+	sl.addTriangle(t1);
+
+	Triangle t2 = Triangle(Point(-7, -2, 0), Point(-7, -2, 21), Point(7, -2, 21));
+	t2.textured = true;
+	t2.texIndex = 0;
+	t2.t0 = Point(0, 0, 0);
+	t2.t1 = Point(0, 1, 0);
+	t2.t2 = Point(1, 1, 0);
+	//t2.mirror = true;
+	sl.addTriangle(t2);
+
+	Sphere s2 = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
+	s2.mirror = true;
+	sl.addSphere(s2);
+
+	Triangle t3 = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
+	t3.mirror = true;
+	sl.addTriangle(t3);
+
+	sl.finalize(sd);
 
 	InitDrawing(arr);
 
