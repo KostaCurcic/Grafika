@@ -29,8 +29,8 @@ public:
 	Light *lights;
 	int nLights;
 
-	Texture *textures;
-	int nTextures;
+	Material *materials;
+	int nMaterials;
 
 	float dofStr = 0.01f;
 	float focalDistance = 5.0f;
@@ -38,7 +38,7 @@ public:
 	float gamma = 2.224f;
 
 	DEVICE_PREFIX void genCameraCoords();
-	DEVICE_PREFIX SceneData genDeviceData(Sphere *, Triangle*, Light*, Texture*);
+	DEVICE_PREFIX SceneData genDeviceData(Sphere *, Triangle*, Light*, Material*);
 	void assignPointersHost();
 
 };

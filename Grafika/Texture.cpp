@@ -61,7 +61,7 @@ void Texture::load(const char * filename)
 	#endif
 }
 
-DEVICE_PREFIX ColorReal Texture::getColor(float x, float y, bool bilinear)
+DEVICE_PREFIX ColorReal Texture::getColor(float x, float y, bool bilinear) const
 {
 	float xc = (x * width);
 	float yc = (y * height);
@@ -85,11 +85,11 @@ DEVICE_PREFIX ColorReal Texture::getColor(float x, float y, bool bilinear)
 	return ret;
 }
 
-DEVICE_PREFIX void Texture::nearestTexGet(float x, float y, ColorReal *ret) {
+DEVICE_PREFIX void Texture::nearestTexGet(float x, float y, ColorReal *ret) const {
 	if(x < width && y < height && x >= 0 && y >= 0)
 		*ret = ColorReal(data[(((int)y) * width + (int)x) * 3], data[(((int)y) * width + (int)x) * 3 + 1], data[(((int)y) * width + (int)x) * 3 + 2]);
 }
-DEVICE_PREFIX void Texture::bilinearTexGet(float x, float y, ColorReal *ret) {
+DEVICE_PREFIX void Texture::bilinearTexGet(float x, float y, ColorReal *ret) const {
 	float r, g, b;
 	int xc = (int)x, yc = (int)y;
 

@@ -53,9 +53,9 @@ void SceneLoader::finalize(SceneData &sd)
 	sd.lights = (Light*)malloc(sd.nLights * sizeof(Light));
 	copy(lights.begin(), lights.end(), sd.lights);
 
-	sd.nTextures = textures.size();
-	sd.textures = (Texture*)malloc(sd.nTextures * sizeof(Texture));
-	copy(textures.begin(), textures.end(), sd.textures);
+	sd.nMaterials = materials.size();
+	sd.materials = (Material*)malloc(sd.nMaterials * sizeof(Material));
+	copy(materials.begin(), materials.end(), sd.materials);
 }
 
 void SceneLoader::addLight(const Light &l)
@@ -73,9 +73,9 @@ void SceneLoader::addTriangle(const Triangle &t)
 	triangles.push_back(t);
 }
 
-void SceneLoader::addTexture(const Texture &t)
+void SceneLoader::addMaterial(const Material &t)
 {
-	textures.push_back(t);
+	materials.push_back(t);
 }
 
 SceneLoader::~SceneLoader()

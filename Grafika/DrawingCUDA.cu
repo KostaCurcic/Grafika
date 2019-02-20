@@ -33,13 +33,13 @@ SceneData *devSd;
 Light *devLights;
 Sphere *devSpheres;
 Triangle *devTriangles;
-Texture *devTextures;
+Material *devMaterials;
 
 void InitFrame()
 {
 
 	sd.genCameraCoords();
-	devSdCopy = sd.genDeviceData(devSpheres, devTriangles, devLights, devTextures);
+	devSdCopy = sd.genDeviceData(devSpheres, devTriangles, devLights, devMaterials);
 
 	cudaError_t cudaStatus = cudaMemcpy(devSpheres, sd.spheres, sd.nSpheres * sizeof(Sphere), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
@@ -59,7 +59,7 @@ void InitFrame()
 		return;
 	}
 
-	cudaStatus = cudaMemcpy(devTextures, sd.textures, sd.nTextures * sizeof(Texture), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(devMaterials, sd.materials, sd.nMaterials * sizeof(Material), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMemcpy failed!");
 		return;
@@ -100,7 +100,7 @@ __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int i
 				colPoint = ray.getPointFromT(t1);
 				colNormal = sd->spheres[i].Normal(colPoint);
 				colObj = sd->spheres + i;
-				mirror = sd->spheres[i].mirror;
+				mirror = sd->spheres[i].mat.mirror;
 				colorMultiplier = colGet.getColorIntesity(sd->gamma);
 			}
 		}
@@ -125,14 +125,14 @@ __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int i
 				colPoint = ray.getPointFromT(t1);
 				colNormal = sd->triangles[i].n;
 				colObj = sd->triangles + i;
-				mirror = sd->triangles[i].mirror;
+				mirror = sd->triangles[i].mat.mirror;
 				colorMultiplier = colGet.getColorIntesity(sd->gamma);
 			}
 		}
 	}
 
 	if (nearest == INFINITY) {
-		return sd->ambient.color.getColorIntesity(sd->gamma) * sd->ambient.intenisty;
+		return sd->ambient.mat.color.getColorIntesity(sd->gamma) * sd->ambient.intenisty;
 	}
 	else if (colObj->shape == LIGHT) {
 		return colorMultiplier;
@@ -168,7 +168,7 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = sd->spheres[i].Normal(*colPoint);
 				*colObj = sd->spheres + i;
-				mirror = sd->spheres[i].mirror;
+				mirror = sd->spheres[i].mat.mirror;
 			}
 		}
 	}
@@ -191,7 +191,7 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = sd->triangles[i].n;
 				*colObj = sd->triangles + i;
-				mirror = sd->triangles[i].mirror;
+				mirror = sd->triangles[i].mat.mirror;
 			}
 		}
 	}
@@ -320,19 +320,19 @@ __global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
 		if (obj->shape == LIGHT) light == 1.0f;
 		else light = pointLit(colPoint, normal, obj, sd);
 
-		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
+		if (obj->shape == TRIANGLE && ((Triangle*)obj)->mat.texture.width != 0) {
 			float coords[] = { 0, 0 };
 			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
-			ColorReal c = sd->textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1], false);
+			ColorReal c = obj->mat.getColor(coords[0], coords[1]);
 
 			color = c * light;
 		}
 		else {
-			color = obj->color * light;
+			color = obj->mat.getColor(0, 0) * light;
 		}
 	}
 	else{
-		color = sd->ambient.color;
+		color = sd->ambient.mat.color;
 	}
 	*pix = color.getPixColor();
 }
@@ -379,7 +379,7 @@ void InitDrawing(char * ptr)
 		return;
 	}
 
-	cudaStatus = cudaMalloc((void**)&devTextures, sd.nTextures * sizeof(Texture));
+	cudaStatus = cudaMalloc((void**)&devMaterials, sd.nMaterials * sizeof(Material));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
 		return;
@@ -509,17 +509,17 @@ DEVICE_PREFIX void SceneData::genCameraCoords()
 
 }
 
-DEVICE_PREFIX SceneData SceneData::genDeviceData(Sphere *devS, Triangle *devTr, Light *devL, Texture *devTe)
+DEVICE_PREFIX SceneData SceneData::genDeviceData(Sphere *devS, Triangle *devTr, Light *devL, Material *devMa)
 {
 	SceneData ret = *this;
-	for (int i = 0; i < nTriangles; i++) {
-		ret.triangles[i].tex = devTe + triangles[i].texIndex;
-	}
+	/*for (int i = 0; i < nTriangles; i++) {
+		ret.triangles[i]. = devTe + triangles[i].texIndex;
+	}*/
 
 	ret.lights = devL;
 	ret.triangles = devTr;
 	ret.spheres = devS;
-	ret.textures = devTe;
+	ret.materials = devMa;
 	return ret;
 }
 
@@ -532,5 +532,6 @@ void SceneData::assignPointersHost() {};
 #include "Triangle.cpp"
 #include "Vector.cpp"
 #include "Color.cpp"
+#include "Material.cpp"
 
 #endif

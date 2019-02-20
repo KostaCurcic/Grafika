@@ -2,6 +2,7 @@
 
 #include "Vector.h"
 #include "Color.h"
+#include "Material.h"
 
 enum EShape
 {
@@ -15,13 +16,10 @@ class GraphicsObject
 public:
 
 	DEVICE_PREFIX GraphicsObject() {
-		mirror = false;
-		color = ColorReal(0.85f, 0.85f, 0.85f);
 	}
 
 	EShape shape;
-	ColorReal color;
-	bool mirror;
+	Material mat;
 	//virtual DEVICE_PREFIX Vector Normal(Point&) const = 0;
 
 private:

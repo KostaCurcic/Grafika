@@ -36,9 +36,9 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.focalDistance = 5.0f;
 	sd.gamma = 2.224f;
 
-	sd.ambient.color.r = 0.20f;
-	sd.ambient.color.g = 0.46f;
-	sd.ambient.color.b = 0.60f;
+	sd.ambient.mat.color.g = 0.46f;
+	sd.ambient.mat.color.b = 0.60f;
+	sd.ambient.mat.color.r = 0.20f;
 	sd.ambient.intenisty = .04f;
 
 	/*sd.nLights = 1;
@@ -90,23 +90,23 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sl.loadObj(R"(C:\Users\Kosta\Desktop\Untitled.obj)", Point(0, 0, 10));
 
 	Light l1 = Light(Sphere(Point(-100, 50, -10), 15), 2.0f);
-	l1.color.r = 0.94f;
-	l1.color.g = 0.7f;
-	l1.color.b = 0.2f;
+	l1.mat.color.r = 0.94f;
+	l1.mat.color.g = 0.7f;
+	l1.mat.color.b = 0.2f;
 	sl.addLight(l1);
 
 	Sphere s1 = Sphere(Point(5, -1, 5), 1);
-	s1.color.r = 0.0f;
-	s1.color.g = 1.0f;
-	s1.color.b = 0.0f;
-	s1.mirror = true;
+	s1.mat.color.r = 0.0f;
+	s1.mat.color.g = 1.0f;
+	s1.mat.color.b = 0.0f;
+	s1.mat.mirror = true;
 	sl.addSphere(s1);
 
-	sl.addTexture(Texture(R"(..\tile.bmp)"));
+	Material m1 = Material(R"(..\tile.bmp)");
+	sl.addMaterial(m1);
 
 	Triangle t1 = Triangle(Point(7, -2, 0), Point(-7, -2, 0), Point(7, -2, 21));
-	t1.textured = true;
-	t1.texIndex = 0;
+	t1.mat = m1;
 	t1.t0 = Point(1, 0, 0);
 	t1.t1 = Point(0, 0, 0);
 	t1.t2 = Point(1, 1, 0);
@@ -114,8 +114,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sl.addTriangle(t1);
 
 	Triangle t2 = Triangle(Point(-7, -2, 0), Point(-7, -2, 21), Point(7, -2, 21));
-	t2.textured = true;
-	t2.texIndex = 0;
+	t2.mat = m1;
 	t2.t0 = Point(0, 0, 0);
 	t2.t1 = Point(0, 1, 0);
 	t2.t2 = Point(1, 1, 0);
@@ -123,11 +122,11 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sl.addTriangle(t2);
 
 	Sphere s2 = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
-	s2.mirror = true;
+	s2.mat.mirror = true;
 	sl.addSphere(s2);
 
 	Triangle t3 = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
-	t3.mirror = true;
+	t3.mat.mirror = true;
 	sl.addTriangle(t3);
 
 	sl.finalize(sd);
@@ -297,5 +296,5 @@ int main() {
 		EVENTFUNC {WM_CREATE, initial},
 	};
 
-	DoGL(3, functions, 1920, 1080);
+	DoGL(3, functions, 1536, 864);
 }

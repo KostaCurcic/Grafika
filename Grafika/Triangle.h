@@ -25,9 +25,6 @@ public:
 	Point v0, v1, v2;
 	Vector n, e0, e1, e2;
 
-	bool textured = false;
-	int texIndex = 0;
-	Texture *tex;
 	Point t0, t1, t2;
 
 private:

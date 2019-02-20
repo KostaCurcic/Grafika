@@ -47,6 +47,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='CUDADebbug|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="GLInit.cpp" />
+    <ClCompile Include="Material.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='CUDA|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='CUDADebbug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="OpenGL3.1.cpp" />
     <ClCompile Include="Point.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
@@ -93,6 +97,7 @@
     <ClInclude Include="GLInit.h" />
     <ClInclude Include="GraphicsObject.h" />
     <ClInclude Include="Light.h" />
+    <ClInclude Include="Material.h" />
     <ClInclude Include="OpenGL3.1.h" />
     <ClInclude Include="Point.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>

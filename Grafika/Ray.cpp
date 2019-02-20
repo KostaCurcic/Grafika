@@ -47,7 +47,7 @@ DEVICE_PREFIX bool Ray::intersects(const Sphere &s, ColorReal* col, float *c1, f
 			if (c1 != nullptr) *c1 = t2;
 			if (c2 != nullptr) *c2 = t1;
 		}
-		if(col != nullptr) *col = s.color;
+		if(col != nullptr) *col = s.mat.getColor(0, 0);
 		return true;
 	}
 }
@@ -71,12 +71,7 @@ DEVICE_PREFIX bool Ray::intersects(const Triangle &tr, ColorReal* col, float *t)
 			*t = tt;
 		}
 		if (col != nullptr) {
-			if (tr.textured) {
-				*col = tr.tex->getColor(weigths[0], weigths[1]);
-			}
-			else {
-				*col = tr.color;
-			}
+			*col = tr.mat.getColor(weigths[0], weigths[1]);
 		}
 		return true;
 	}

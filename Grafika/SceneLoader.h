@@ -18,7 +18,7 @@ public:
 	void addLight(const Light&);
 	void addSphere(const Sphere&);
 	void addTriangle(const Triangle&);
-	void addTexture(const Texture&);
+	void addMaterial(const Material&);
 
 	~SceneLoader();
 
@@ -28,5 +28,5 @@ private:
 	std::vector<Light> lights;
 	std::vector<Point> vertecies;
 	std::vector<Vector> normals;
-	std::vector<Texture> textures;
+	std::vector<Material> materials;
 };
