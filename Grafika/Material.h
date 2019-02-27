@@ -2,6 +2,9 @@
 
 #include "Color.h"
 #include "Texture.h"
+#include <string>
+
+using namespace std;
 
 class Material
 {
@@ -14,6 +17,7 @@ public:
 	DEVICE_PREFIX ColorReal getColor(float x, float y) const;
 
 	bool mirror = false;
+	char name[100] = { 0 };
 	Texture texture;
 	ColorReal color;
 

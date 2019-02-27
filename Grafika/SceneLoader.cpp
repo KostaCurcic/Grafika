@@ -2,9 +2,43 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <filesystem>
 
 SceneLoader::SceneLoader()
 {
+}
+
+void SceneLoader::loadMaterial(const char * path, const char *name)
+{
+	char pathNew[1000];
+	strcpy(pathNew, path);
+	char *begin = pathNew + strlen(pathNew) - 1;
+	while (*begin != '\\' && *begin != '/') begin--;
+	begin++;
+	strcpy(begin, name);
+
+	ifstream file(pathNew);
+	string line, op;
+
+	Material m;
+
+	while (getline(file, line)) {
+		stringstream ss(line);
+		op.clear();
+		ss >> op;
+		if (op == "newmtl") {
+			if (m.name[0] != 0) {
+				materials.push_back(m);
+			}
+			ss >> m.name;
+		}
+		else if (op == "Kd") {
+			ss >> m.color.r >> m.color.g >> m.color.b;
+		}
+	}
+	if (m.name[0] != 0) {
+		materials.push_back(m);
+	}
 }
 
 void SceneLoader::loadObj(const char *path, const Point & offset)
@@ -12,6 +46,8 @@ void SceneLoader::loadObj(const char *path, const Point & offset)
 	ifstream file(path);
 	string line, op;
 	vertecies.clear();
+
+	Material *am = nullptr;
 
 	while (getline(file, line)) {
 		stringstream ss(line);
@@ -34,7 +70,26 @@ void SceneLoader::loadObj(const char *path, const Point & offset)
 			triangle = Triangle(vertecies[stoi(s1.substr(0, s1.find("/"))) - 1],
 								vertecies[stoi(s2.substr(0, s2.find("/"))) - 1],
 								vertecies[stoi(s3.substr(0, s3.find("/"))) - 1]);
+			if (am != nullptr) {
+				triangle.mat = *am;
+			}
 			triangles.push_back(triangle);
+		}
+		else if (op == "mtllib") {
+			string p;
+			ss >> p;
+			loadMaterial(path, p.c_str());
+		}
+		else if (op == "usemtl") {
+			string p;
+			ss >> p;
+			am = nullptr;
+			for (int i = 0; i < materials.size(); i++) {
+				if (p == materials[i].name) {
+					am = &materials[i];
+					break;
+				}
+			}
 		}
 	}
 }

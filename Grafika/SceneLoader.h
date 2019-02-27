@@ -23,6 +23,9 @@ public:
 	~SceneLoader();
 
 private:
+
+	void loadMaterial(const char* path, const char *name);
+
 	std::vector<Triangle> triangles;
 	std::vector<Sphere> spheres;
 	std::vector<Light> lights;

@@ -54,7 +54,7 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 				colPoint = ray.getPointFromT(t1);
 				colNormal = sd.spheres[i].Normal(colPoint);
 				colObj = sd.spheres + i;
-				mirror = sd.spheres[i].mirror;
+				mirror = sd.spheres[i].mat.mirror;
 				colorMultiplier = colGet.getColorIntesity(sd.gamma);
 			}
 		}
@@ -79,14 +79,14 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 				colPoint = ray.getPointFromT(t1);
 				colNormal = sd.triangles[i].n;
 				colObj = sd.triangles + i;
-				mirror = sd.triangles[i].mirror;
+				mirror = sd.triangles[i].mat.mirror;
 				colorMultiplier = colGet.getColorIntesity(sd.gamma);
 			}
 		}
 	}
 
 	if (nearest == INFINITY) {
-		return sd.ambient.color.getColorIntesity(sd.gamma) * sd.ambient.intenisty;
+		return sd.ambient.mat.color.getColorIntesity(sd.gamma) * sd.ambient.intenisty;
 	}
 	else if (colObj->shape == LIGHT) {
 		return colorMultiplier;
@@ -121,7 +121,7 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = sd.spheres[i].Normal(*colPoint);
 				*colObj = sd.spheres + i;
-				mirror = sd.spheres[i].mirror;
+				mirror = sd.spheres[i].mat.mirror;
 			}
 		}
 	}
@@ -133,7 +133,7 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = sd.lights[i].Normal(*colPoint);
 				*colObj = sd.lights + i;
-				mirror = sd.lights[i].mirror;
+				mirror = sd.lights[i].mat.mirror;
 			}
 		}
 	}
@@ -145,7 +145,7 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 				*colPoint = ray.getPointFromT(t1);
 				*colNormal = sd.triangles[i].n;
 				*colObj = sd.triangles + i;
-				mirror = sd.triangles[i].mirror;
+				mirror = sd.triangles[i].mat.mirror;
 			}
 		}
 	}
@@ -215,7 +215,7 @@ DWORD WINAPI ThreadFunc(void* data) {
 					drawPixelR(j * 2.0f / YRES - XRES / (float)YRES + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / YRES
 						, i * 2.0 / YRES - 1.0 + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) / XRES, (ColorReal*)realImg + (i * XRES + j));
 
-					rc = powf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
+					/*rc = powf(realImg[(i * XRES + j) * 3] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
 					gc = powf(realImg[(i * XRES + j) * 3 + 1] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
 					bc = powf(realImg[(i * XRES + j) * 3 + 2] / iteration[(int)data] * sd.expMultiplier, 1 / sd.gamma);
 
@@ -225,7 +225,9 @@ DWORD WINAPI ThreadFunc(void* data) {
 
 					imgptr[(i * XRES + j) * 3] = rc;
 					imgptr[(i * XRES + j) * 3 + 1] = gc;
-					imgptr[(i * XRES + j) * 3 + 2] = bc;
+					imgptr[(i * XRES + j) * 3 + 2] = bc;*/
+
+					*((Color*)imgptr + (i * XRES + j)) = (((ColorReal*)realImg) + (i * XRES + j))->getPixColor(sd.gamma, sd.expMultiplier / iteration[(int)data]);
 				}
 			}
 		}
@@ -299,20 +301,20 @@ void drawPixel(float x, float y, char *pix) {
 
 	if (findColPoint(ray, &colPoint, &normal, &obj)) {
 		light = pointLit(colPoint, normal, obj);
-		if (obj->shape == TRIANGLE && ((Triangle*)obj)->textured) {
+		if (obj->shape == TRIANGLE && ((Triangle*)obj)->mat.texture.width != 0) {
 			float coords[] = { 0, 0 };
 			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);
-			ColorReal c = sd.textures[((Triangle*)obj)->texIndex].getColor(coords[0], coords[1]);
+			ColorReal c = obj->mat.getColor(coords[0], coords[1]);
 
 			ret = c * light;
 		}
 		else 
 		{
-			ret = obj->color * light;
+			ret = obj->mat.getColor(0, 0) * light;
 		}
 	}
 	else {
-		ret = sd.ambient.color;
+		ret = sd.ambient.mat.color;
 	}
 	*px = ret.getPixColor();
 }
@@ -352,9 +354,9 @@ DEVICE_PREFIX void SceneData::genCameraCoords()
 }
 
 void SceneData::assignPointersHost() {
-	for (int i = 0; i < nTriangles; i++) {
+	/*for (int i = 0; i < nTriangles; i++) {
 		triangles[i].tex = textures + triangles[i].texIndex;
-	}
+	}*/
 };
 
 #endif
