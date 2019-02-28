@@ -2,7 +2,7 @@
 
 Material::Material()
 {
-	color = ColorReal(1, 1, 1);
+	color = ColorReal(0.95f, 0.95f, 0.95f);
 }
 
 Material::Material(ColorReal &c)

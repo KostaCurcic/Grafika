@@ -29,5 +29,7 @@ public:
 	Point o;
 	Vector d;
 
+	float refIndex = 1.0f;
+
 private:
 };

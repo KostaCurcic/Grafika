@@ -41,7 +41,6 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 	Point colPoint;
 	Vector colNormal;
 	GraphicsObject *colObj;
-	bool mirror = false;
 
 	if (iterations <= 0) {
 		return ColorReal(0, 0, 0);
@@ -54,7 +53,6 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 				colPoint = ray.getPointFromT(t1);
 				colNormal = sd.spheres[i].Normal(colPoint);
 				colObj = sd.spheres + i;
-				mirror = sd.spheres[i].mat.mirror;
 				colorMultiplier = colGet.getColorIntesity(sd.gamma);
 			}
 		}
@@ -79,7 +77,6 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 				colPoint = ray.getPointFromT(t1);
 				colNormal = sd.triangles[i].n;
 				colObj = sd.triangles + i;
-				mirror = sd.triangles[i].mat.mirror;
 				colorMultiplier = colGet.getColorIntesity(sd.gamma);
 			}
 		}
@@ -92,8 +89,11 @@ ColorReal traceRand(Ray ray, int iterations = 20) {
 		return colorMultiplier;
 	}
 	else {
-		if (mirror) {
-			return traceRand(Ray(colPoint, ray.d.Reflect(colNormal)), iterations - 1);
+		if (colObj->mat.mirror) {
+			return colorMultiplier * traceRand(Ray(colPoint, ray.d.Reflect(colNormal)), iterations - 1);
+		}
+		else if (colObj->mat.transparent) {
+			return colorMultiplier * traceRand(Ray(colPoint, ray.d.Refract(colNormal, colObj->mat.refIndex)), iterations - 1);
 		}
 		else {
 			ray.o = colPoint;
@@ -113,6 +113,7 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 
 	float t1, nearest = INFINITY;
 	bool mirror = false;
+	bool transparent = false;
 
 	for (int i = 0; i < sd.nSpheres; i++) {
 		if (ray.intersects(sd.spheres[i], nullptr, &t1, nullptr)) {
@@ -122,6 +123,7 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 				*colNormal = sd.spheres[i].Normal(*colPoint);
 				*colObj = sd.spheres + i;
 				mirror = sd.spheres[i].mat.mirror;
+				transparent = sd.spheres[i].mat.transparent;
 			}
 		}
 	}
@@ -146,12 +148,16 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 				*colNormal = sd.triangles[i].n;
 				*colObj = sd.triangles + i;
 				mirror = sd.triangles[i].mat.mirror;
+				transparent = sd.triangles[i].mat.transparent;
 			}
 		}
 	}
 
 	if (mirror) {
 		return findColPoint(Ray(*colPoint, ray.d.Reflect(*colNormal)), colPoint, colNormal, colObj);
+	}
+	else if (transparent) {
+		return findColPoint(Ray(*colPoint, ray.d.Refract(*colNormal, (*colObj)->mat.refIndex)), colPoint, colNormal, colObj);
 	}
 
 	if (nearest < INFINITY) return true;

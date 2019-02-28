@@ -17,6 +17,10 @@ public:
 	DEVICE_PREFIX ColorReal getColor(float x, float y) const;
 
 	bool mirror = false;
+
+	bool transparent = false;
+	float refIndex = 1.0f;
+
 	char name[100] = { 0 };
 	Texture texture;
 	ColorReal color;

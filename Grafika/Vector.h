@@ -19,6 +19,7 @@ public:
 	DEVICE_PREFIX Vector operator-() const;
 	DEVICE_PREFIX Vector operator-(const Vector&) const;
 	DEVICE_PREFIX Vector Reflect(const Vector& normal) const;
+	DEVICE_PREFIX Vector Refract(const Vector& normal, float index) const;
 
 private:
 

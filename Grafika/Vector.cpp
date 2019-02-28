@@ -72,3 +72,10 @@ DEVICE_PREFIX Vector Vector::Reflect(const Vector & normal) const
 {
 	return *this - (normal * (2 * (*this * normal)));
 }
+
+DEVICE_PREFIX Vector Vector::Refract(const Vector & normal, float index) const
+{
+	index -= 1.0f;
+	if (*this * normal < 0) index = -index;
+	return *this + (normal * (index));
+}

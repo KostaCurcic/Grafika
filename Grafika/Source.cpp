@@ -87,7 +87,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.triangles[2].mirror = true;*/
 
 	SceneLoader sl;
-	sl.loadObj(R"(C:\Users\Kosta\Desktop\Untitled.obj)", Point(0, 0, 10));
+	sl.loadObj(R"(..\Objects\Untitled.obj)", Point(0, 0, 10));
 
 	Light l1 = Light(Sphere(Point(-100, 50, -10), 15), 2.0f);
 	l1.mat.color.r = 0.94f;
@@ -100,6 +100,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	s1.mat.color.g = 1.0f;
 	s1.mat.color.b = 0.0f;
 	s1.mat.mirror = true;
+	s1.mat.refIndex = 1.5f;
 	sl.addSphere(s1);
 
 	Material m1 = Material(R"(..\tile.bmp)");
@@ -122,7 +123,9 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sl.addTriangle(t2);
 
 	Sphere s2 = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
-	s2.mat.mirror = true;
+	s2.mat.color = ColorReal(1, 1, 1);
+	s2.mat.transparent = true;
+	s2.mat.refIndex = 2.3f;
 	sl.addSphere(s2);
 
 	Triangle t3 = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
