@@ -244,6 +244,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		Point focalPoint = sd->camera + (Vector)(pixelPoint - sd->camera) * (1 + focalDistance / sd->camDist);
 
 		float pointMove = sd->dofStr, xOff, yOff;
+		float pointBack = ((Vector)(sd->camera - pixelPoint)).Length();
 
 		float ang = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 6.28315f;
 		pointMove *= curand_uniform(state + ((xi * 100 + yi) % RANDGENS));
@@ -255,6 +256,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		} while (sqrtf(xOff * xOff + yOff * yOff) > pointMove);*/
 		Point passPoint = pixelPoint + sd->sR * xOff + sd->sD * yOff;
 		ray = Ray(passPoint, focalPoint);
+		ray.o = ray.getPointFromT(-pointBack);
 	}
 
 	float light;

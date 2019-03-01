@@ -14,7 +14,7 @@ DEVICE_PREFIX Sphere::Sphere(Point C, float R)
 	shape = SPHERE;
 }
 
-DEVICE_PREFIX Vector Sphere::Normal(Point &p) const
+DEVICE_PREFIX Vector Sphere::Normal(const Point &p) const
 {
 	return ((Vector)(p - c)).Normalize();
 }

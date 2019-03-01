@@ -36,10 +36,18 @@ DEVICE_PREFIX bool Ray::intersects(const Sphere &s, ColorReal* col, float *c1, f
 	{
 		t1 = (-b + sqrt(del)) / 2;
 		t2 = (-b - sqrt(del)) / 2;
+		if (s.cut) {
+			if (t1 > 0 && (s.cutVector * (getPointFromT(t1) - s.cutPoint) < 0)) {
+				t1 = -1;
+			}
+			if (t2 > 0 && (s.cutVector * (getPointFromT(t2) - s.cutPoint) < 0)) {
+				t2 = -1;
+			}
+		}
 		if (t1 < 0 && t2 < 0) {
 			return false;
 		}
-		else if (t1 < t2 && t1 > 0) {
+		else if ((t1 < t2 && t1 > 0) || t2 < 0) {
 			if (c1 != nullptr) *c1 = t1;
 			if (c2 != nullptr) *c2 = t2;
 		}

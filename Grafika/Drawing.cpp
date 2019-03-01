@@ -153,12 +153,12 @@ float findColPoint(Ray ray, Point *colPoint, Vector *colNormal, GraphicsObject *
 		}
 	}
 
-	if (mirror) {
+	/*if (mirror) {
 		return findColPoint(Ray(*colPoint, ray.d.Reflect(*colNormal)), colPoint, colNormal, colObj);
 	}
 	else if (transparent) {
 		return findColPoint(Ray(*colPoint, ray.d.Refract(*colNormal, (*colObj)->mat.refIndex)), colPoint, colNormal, colObj);
-	}
+	}*/
 
 	if (nearest < INFINITY) return true;
 	return false;
@@ -306,7 +306,8 @@ void drawPixel(float x, float y, char *pix) {
 	Point colPoint;
 
 	if (findColPoint(ray, &colPoint, &normal, &obj)) {
-		light = pointLit(colPoint, normal, obj);
+		//light = pointLit(colPoint, normal, obj);
+		light = 1.0f;
 		if (obj->shape == TRIANGLE && ((Triangle*)obj)->mat.texture.width != 0) {
 			float coords[] = { 0, 0 };
 			((Triangle*)obj)->interpolatePoint(colPoint, (float*)&(((Triangle*)obj)->t0), (float*)&(((Triangle*)obj)->t1), (float*)&(((Triangle*)obj)->t2), coords, 2);

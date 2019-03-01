@@ -89,7 +89,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	SceneLoader sl;
 	sl.loadObj(R"(..\Objects\Untitled.obj)", Point(0, 0, 10));
 
-	Light l1 = Light(Sphere(Point(-100, 50, -10), 15), 2.0f);
+	Light l1 = Light(Sphere(Point(-100, 150, -10), 15), 2.0f);
 	l1.mat.color.r = 0.94f;
 	l1.mat.color.g = 0.7f;
 	l1.mat.color.b = 0.2f;
@@ -126,6 +126,18 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	s2.mat.color = ColorReal(1, 1, 1);
 	s2.mat.transparent = true;
 	s2.mat.refIndex = 2.3f;
+	s2.cut = true;
+	s2.cutPoint = s2.c - Point(0.5, 0, 0);
+	s2.cutVector = Vector(-1, 0, 0);
+	sl.addSphere(s2);
+
+	s2 = Sphere(Point(sinf(0) * 3 - 1, -1, 8 + cosf(0) * 3), 1);
+	s2.mat.color = ColorReal(1, 1, 1);
+	s2.mat.transparent = true;
+	s2.mat.refIndex = 2.3f;
+	s2.cut = true;
+	s2.cutPoint = s2.c - Point(-0.5, 0, 0);
+	s2.cutVector = Vector(1, 0, 0);
 	sl.addSphere(s2);
 
 	Triangle t3 = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
@@ -191,43 +203,75 @@ void testKeys() {
 			sd.gamma /= 1.01f;
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x31)) { //1
+		if (GetAsyncKeyState('1')) {
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x57)) { //W
+		if (GetAsyncKeyState('W')) {
 			sd.camera = sd.camera + sd.c2S * (speed / sd.camDist);
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x53)) { //S
+		if (GetAsyncKeyState('S')) {
 			sd.camera = sd.camera - sd.c2S * (speed / sd.camDist);
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x41)) { //A
+		if (GetAsyncKeyState('A')) {
 			sd.camera = sd.camera - sd.sR * speed;
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x44)) { //D
+		if (GetAsyncKeyState('D')) {
 			sd.camera = sd.camera + sd.sR * speed;
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x43)) { //C
+		if (GetAsyncKeyState('C')) {
 			sd.camera = sd.camera + sd.sD * speed;
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x5A)) { //Z
+		if (GetAsyncKeyState('Z')) {
 			sd.camera = sd.camera - sd.sD * speed;
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x52)) { //R
+		if (GetAsyncKeyState('R')) {
 			sd.reset = true;
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x51)) { //Q
+		if (GetAsyncKeyState('Q')) {
 			sd.camDist *= 1.1f;
 			changed = true;
 		}
-		if (GetAsyncKeyState(0x45)) { //E
+		if (GetAsyncKeyState('E')) {
 			sd.camDist /= 1.1f;
+			changed = true;
+		}
+		if (GetAsyncKeyState('I')) {
+			sd.spheres[1].c.z += 0.03f;
+			changed = true;
+		}
+		if (GetAsyncKeyState('K')) {
+			sd.spheres[1].c.z -= 0.03f;
+			changed = true;
+		}
+		if (GetAsyncKeyState('J')) {
+			sd.spheres[1].c.x += 0.03f;
+			changed = true;
+		}
+		if (GetAsyncKeyState('L')) {
+			sd.spheres[1].c.x -= 0.03f;
+			changed = true;
+		}
+		if (GetAsyncKeyState('O')) {
+			sd.spheres[1].c.y += 0.03f;
+			changed = true;
+		}
+		if (GetAsyncKeyState('U')) {
+			sd.spheres[1].c.y -= 0.03f;
+			changed = true;
+		}
+		if (GetAsyncKeyState('1')) {
+			sd.spheres[1].mat.refIndex *= 1.03f;
+			changed = true;
+		}
+		if (GetAsyncKeyState('2')) {
+			sd.spheres[1].mat.refIndex /= 1.03f;
 			changed = true;
 		}
 		if (GetAsyncKeyState(VK_RBUTTON)) {
