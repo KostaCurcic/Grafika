@@ -14,6 +14,8 @@ char *arr, *tarr;
 
 void initial(WPARAM wParam, LPARAM lParam) {
 
+	cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+
 	LoadShaderFunctions();
 
 	glGenTextures(1, &tex);
@@ -39,52 +41,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.ambient.mat.color.g = 0.46f;
 	sd.ambient.mat.color.b = 0.60f;
 	sd.ambient.mat.color.r = 0.20f;
-	sd.ambient.intenisty = .04f;
-
-	/*sd.nLights = 1;
-	sd.nSpheres = 2;
-	sd.nTriangles = 3;
-	sd.nTextures = 1;
-
-	sd.spheres = (Sphere*)malloc(sd.nSpheres * sizeof(Sphere));
-	sd.triangles = (Triangle*)malloc(sd.nTriangles * sizeof(Triangle));
-	sd.lights = (Light*)malloc(sd.nSpheres * sizeof(Sphere));
-	sd.textures = (Texture*)malloc(sd.nTextures * sizeof(Texture));
-
-	sd.textures[0].load(R"(..\tile.bmp)");
-
-	sd.spheres[0] = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
-	sd.spheres[0].mirror = true;
-
-	sd.spheres[1] = Sphere(Point(5, -1, 5), 1);
-	sd.spheres[1].color.r = 0.0f;
-	sd.spheres[1].color.g = 1.0f;
-	sd.spheres[1].color.b = 0.0f;
-	//sd.spheres[1].mirror = true;
-
-	sd.lights[0] = Light(Sphere(Point(-100, 50, -10), 15), 1.0f);
-	sd.lights[0].color.r = 0.94f;
-	sd.lights[0].color.g = 0.7f;
-	sd.lights[0].color.b = 0.2f;
-
-	sd.triangles[0] = Triangle(Point(7, -2, 0), Point(-7, -2, 0), Point(7, -2, 21));
-	sd.triangles[0].textured = true;
-	sd.triangles[0].texIndex = 0;
-	sd.triangles[0].t0 = Point(1, 0, 0);
-	sd.triangles[0].t1 = Point(0, 0, 0);
-	sd.triangles[0].t2 = Point(1, 1, 0);
-	//sd.triangles[0].mirror = true;
-
-	sd.triangles[1] = Triangle(Point(-7, -2, 0), Point(-7, -2, 21), Point(7, -2, 21));
-	sd.triangles[1].textured = true;
-	sd.triangles[1].texIndex = 0;
-	sd.triangles[1].t0 = Point(0, 0, 0);
-	sd.triangles[1].t1 = Point(0, 1, 0);
-	sd.triangles[1].t2 = Point(1, 1, 0);
-	//sd.triangles[1].mirror = true;
-
-	sd.triangles[2] = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
-	sd.triangles[2].mirror = true;*/
+	sd.ambient.intenisty = .00004f;
 
 	SceneLoader sl;
 	sl.loadObj(R"(..\Objects\Untitled.obj)", Point(0, 0, 10));
@@ -96,9 +53,9 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sl.addLight(l1);
 
 	Sphere s1 = Sphere(Point(5, -1, 5), 1);
-	s1.mat.color.r = 0.0f;
+	s1.mat.color.r = 0.5f;
 	s1.mat.color.g = 1.0f;
-	s1.mat.color.b = 0.0f;
+	s1.mat.color.b = 0.5f;
 	s1.mat.mirror = true;
 	s1.mat.refIndex = 1.5f;
 	sl.addSphere(s1);
@@ -203,9 +160,9 @@ void testKeys() {
 			sd.gamma /= 1.01f;
 			changed = true;
 		}
-		if (GetAsyncKeyState('1')) {
+		/*if (GetAsyncKeyState('1')) {
 			changed = true;
-		}
+		}*/
 		if (GetAsyncKeyState('W')) {
 			sd.camera = sd.camera + sd.c2S * (speed / sd.camDist);
 			changed = true;
@@ -243,27 +200,27 @@ void testKeys() {
 			changed = true;
 		}
 		if (GetAsyncKeyState('I')) {
-			sd.spheres[1].c.z += 0.03f;
+			sd.spheres[0].c.z += 0.03f;
 			changed = true;
 		}
 		if (GetAsyncKeyState('K')) {
-			sd.spheres[1].c.z -= 0.03f;
+			sd.spheres[0].c.z -= 0.03f;
 			changed = true;
 		}
 		if (GetAsyncKeyState('J')) {
-			sd.spheres[1].c.x += 0.03f;
+			sd.spheres[0].c.x += 0.03f;
 			changed = true;
 		}
 		if (GetAsyncKeyState('L')) {
-			sd.spheres[1].c.x -= 0.03f;
+			sd.spheres[0].c.x -= 0.03f;
 			changed = true;
 		}
 		if (GetAsyncKeyState('O')) {
-			sd.spheres[1].c.y += 0.03f;
+			sd.spheres[0].c.y += 0.03f;
 			changed = true;
 		}
 		if (GetAsyncKeyState('U')) {
-			sd.spheres[1].c.y -= 0.03f;
+			sd.spheres[0].c.y -= 0.03f;
 			changed = true;
 		}
 		if (GetAsyncKeyState('1')) {
@@ -274,12 +231,12 @@ void testKeys() {
 			sd.spheres[1].mat.refIndex /= 1.03f;
 			changed = true;
 		}
-		if (GetAsyncKeyState(VK_RBUTTON)) {
+		/*if (GetAsyncKeyState(VK_RBUTTON)) {
 			POINT p;
 			GetCursorPos(&p);
 			sd.camXang = (p.x * 3.1415f) / (XRES / 4) - 3.1415f;
 			sd.camYang = (p.y * 3.1415f) / (YRES / 4) - 3.1415f;
-		}
+		}*/
 	}
 	if (changed) {
 		InitFrame();
@@ -336,6 +293,20 @@ void draw(WPARAM wParam, LPARAM lParam) {
 
 
 int main() {
+
+	printf(R"(
+RAY-TRACER
+Keys:
+	Arrows - Camera rotation
+	WASD - movement (camera relative)
+	C, Z - move up - down (camera relative)
+	Q, E - FOV
+	Num 4, 1 - Exposure control
+	Num 5, 2 - Focal distance
+	Num 6, 3 - DOF (Aparature size)
+	-, + - gamma control
+---------------------------------------------
+)");
 
 	EVENTFUNC functions[]{
 		EVENTFUNC {WM_PAINT, draw},

@@ -78,6 +78,7 @@ void InitFrame()
 		if(realImg != nullptr)
 			cudaMemset(realImg, 0, XRES * YRES * 3 * sizeof(float));
 	}
+
 }
 
 __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int iterations = 20) {
@@ -349,6 +350,7 @@ void InitDrawing(char * ptr)
 {
 	imgptr = ptr;
 
+
 	// Choose which GPU to run on, change this on a multi-GPU system.
 	cudaError_t cudaStatus = cudaSetDevice(0);
 	if (cudaStatus != cudaSuccess) {
@@ -356,7 +358,6 @@ void InitDrawing(char * ptr)
 		return;
 	}
 
-	// Allocate GPU buffers for three vectors (two input, one output)    .
 	cudaStatus = cudaMalloc((void**)&devImgPtr, XRES * YRES * 3 * sizeof(char));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");
@@ -468,7 +469,7 @@ void DrawFrame()
 
 		iteration++;
 
-		printf("Iteration : %d\n", iteration);
+		printf("Iteration : %d             \r", iteration);
 
 		// Copy output vector from GPU buffer to host memory.
 		cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
