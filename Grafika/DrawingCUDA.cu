@@ -35,6 +35,8 @@ Sphere *devSpheres;
 Triangle *devTriangles;
 Material *devMaterials;
 
+LARGE_INTEGER timer;
+
 void InitFrame()
 {
 
@@ -467,9 +469,18 @@ void DrawFrame()
 			return;
 		}
 
+
 		iteration++;
 
-		printf("Iteration : %d             \r", iteration);
+		LARGE_INTEGER freq, now;
+		QueryPerformanceFrequency(&freq);
+		QueryPerformanceCounter(&now);
+
+		double itps = (double)freq.QuadPart / (now.QuadPart - timer.QuadPart);
+
+		timer = now;
+
+		printf("Iteration : %d (%.2f)it/s             \r", iteration, itps);
 
 		// Copy output vector from GPU buffer to host memory.
 		cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);

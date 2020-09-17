@@ -14,7 +14,9 @@ char *arr, *tarr;
 
 void initial(WPARAM wParam, LPARAM lParam) {
 
+#ifdef CUDA
 	cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+#endif
 
 	LoadShaderFunctions();
 
@@ -41,10 +43,10 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.ambient.mat.color.g = 0.46f;
 	sd.ambient.mat.color.b = 0.60f;
 	sd.ambient.mat.color.r = 0.20f;
-	sd.ambient.intenisty = .00004f;
+	sd.ambient.intenisty = .04f;
 
 	SceneLoader sl;
-	sl.loadObj(R"(..\Objects\Untitled.obj)", Point(0, 0, 10));
+	sl.loadObj(R"(..\Objects\Dolphin.obj)", Point(0, 0, 8));
 
 	Light l1 = Light(Sphere(Point(-100, 150, -10), 15), 2.0f);
 	l1.mat.color.r = 0.94f;
@@ -79,7 +81,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	//t2.mirror = true;
 	sl.addTriangle(t2);
 
-	Sphere s2 = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
+	/*Sphere s2 = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
 	s2.mat.color = ColorReal(1, 1, 1);
 	s2.mat.transparent = true;
 	s2.mat.refIndex = 2.3f;
@@ -95,7 +97,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	s2.cut = true;
 	s2.cutPoint = s2.c - Point(-0.5, 0, 0);
 	s2.cutVector = Vector(1, 0, 0);
-	sl.addSphere(s2);
+	sl.addSphere(s2);*/
 
 	Triangle t3 = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
 	t3.mat.mirror = true;
