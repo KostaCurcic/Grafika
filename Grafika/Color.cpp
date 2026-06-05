@@ -104,9 +104,9 @@ DEVICE_PREFIX Color ColorReal::getPixColorDesat(float gamma, float exp)
 	float overG = dg > 255.0f ? dg - 255.0f : 0.0f;
 	float overB = db > 255.0f ? db - 255.0f : 0.0f;
 
-	dr += overG + overB;
-	dg += overR + overB;
-	db += overR + overG;
+	dr += overG + overB / 2;
+	dg += overR + overB / 2;
+	db += overR + overG / 2;
 
 	return Color(dr > 255 ? 255 : dr,
 				 dg > 255 ? 255 : dg,

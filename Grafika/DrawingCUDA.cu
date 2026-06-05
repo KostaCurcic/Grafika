@@ -17,6 +17,8 @@
 
 #define THRCOUNT 8
 
+#define ITER
+
 float angle = 0;
 
 char *imgptr, *devImgPtr;
@@ -81,6 +83,83 @@ void InitFrame()
 			cudaMemset(realImg, 0, XRES * YRES * 3 * sizeof(float));
 	}
 
+}
+
+__device__ ColorReal traceRandIter(Ray ray, SceneData* sd, curandState* state, Ray* newRay) {
+	float t1, nearest = INFINITY;
+	ColorReal colorMultiplier(1, 1, 1);
+	ColorReal colGet;
+	Point colPoint;
+	Vector colNormal;
+	GraphicsObject* colObj;
+
+	for (int i = 0; i < sd->nSpheres; i++) {
+		if (ray.intersects(sd->spheres[i], &colGet, &t1, nullptr)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				colPoint = ray.getPointFromT(t1);
+				colNormal = sd->spheres[i].Normal(colPoint);
+				colObj = sd->spheres + i;
+				colorMultiplier = colGet.getColorIntesity(sd->gamma);
+			}
+		}
+	}
+
+	for (int i = 0; i < sd->nLights; i++) {
+		if (ray.intersects(sd->lights[i], &colGet, &t1)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				colPoint = ray.getPointFromT(t1);
+				colNormal = sd->lights[i].Normal(colPoint);
+				colObj = sd->lights + i;
+				colorMultiplier = colGet.getColorIntesity(sd->gamma) * sd->lights[i].intenisty;
+			}
+		}
+	}
+
+	for (int i = 0; i < sd->nTriangles; i++) {
+		if (ray.intersects(sd->triangles[i], &colGet, &t1)) {
+			if (t1 < nearest && t1 > 0.001) {
+				nearest = t1;
+				colPoint = ray.getPointFromT(t1);
+				colNormal = sd->triangles[i].n;
+				colObj = sd->triangles + i;
+				colorMultiplier = colGet.getColorIntesity(sd->gamma);
+			}
+		}
+	}
+
+	if (nearest == INFINITY) {
+		*newRay = Ray(Point(-INFINITY, -INFINITY, -INFINITY), Vector(0, 0, 0));
+		return sd->ambient.mat.color.getColorIntesity(sd->gamma) * sd->ambient.intenisty;
+	}
+	else if (colObj->shape == LIGHT) {
+		*newRay = Ray(Point(-INFINITY, -INFINITY, -INFINITY), Vector(0, 0, 0));
+		return colorMultiplier;
+	}
+	else {
+		if (colObj->mat.mirror) {
+			*newRay = Ray(colPoint, ray.d.Reflect(colNormal));
+			return colorMultiplier;
+		}
+		else if (colObj->mat.transparent) {
+			*newRay = Ray(colPoint, ray.d.Refract(colNormal, colObj->mat.refIndex));
+			return colorMultiplier;
+		}
+		else {
+			ray.o = colPoint;
+			if (ray.d * colNormal > 0) colNormal = -colNormal;
+			do {
+				ray.d.x = curand_uniform(state) * 2 - 1.0f;
+				ray.d.y = curand_uniform(state) * 2 - 1.0f;
+				ray.d.z = curand_uniform(state) * 2 - 1.0f;
+				ray.d.Normalize();
+				if (ray.d * colNormal <= 0) ray.d = -ray.d;
+			} while (ray.d * colNormal <= curand_uniform(state));
+			*newRay = ray;
+			return colorMultiplier;
+		}
+	}
 }
 
 __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int iterations = 20) {
@@ -267,7 +346,24 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 	Point colPoint;
 
-	*rm += traceRand(ray, sd, state + ((xi * XRES + yi + 3) + (iter* 123)) % RANDGENS, sd->bounces);
+#ifdef ITER
+	Ray newRay;
+	ColorReal newPixelColor = ColorReal(1, 1, 1);
+	for (int i = 0; i <= sd->bounces; i++) {
+		if(i == sd->bounces){
+			newPixelColor = ColorReal(0, 0, 0);
+			break;
+		}
+		newPixelColor *= traceRandIter(ray, sd, state + ((xi * XRES + yi + 3) + (iter * 123)) % RANDGENS, &newRay);
+		if (newRay.o.x == -INFINITY) break;
+		ray = newRay;
+	}
+	*rm += newPixelColor;
+#else
+	* rm += traceRand(ray, sd, state + ((xi * XRES + yi + 3) + (iter * 123)) % RANDGENS, sd->bounces);
+#endif // ITER
+
+
 	*pix = rm->getPixColorDesat(sd->gamma, sd->expMultiplier / iter);
 
 	return;
@@ -363,11 +459,11 @@ void InitDrawing(char * ptr)
 	// traceRand recurses once per bounce (sd.bounces, default 20). The default
 	// per-thread stack (1 KB) overflows that deep recursion and the path-tracer
 	// kernel aborts with cudaErrorLaunchFailure (719). Raise the stack to fit.
-	cudaStatus = cudaDeviceSetLimit(cudaLimitStackSize, 32 * 1024);
+	/*cudaStatus = cudaDeviceSetLimit(cudaLimitStackSize, 32 * 1024);
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaDeviceSetLimit(stack) failed: %s\n", cudaGetErrorString(cudaStatus));
 		return;
-	}
+	}*/
 
 	cudaStatus = cudaMalloc((void**)&devImgPtr, XRES * YRES * 3 * sizeof(char));
 	if (cudaStatus != cudaSuccess) {
