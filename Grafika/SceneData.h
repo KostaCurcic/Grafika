@@ -12,7 +12,7 @@ public:
 	Vector c2S, sR, sD;
 
 	bool reset = true;
-	bool realTime = false;
+	bool realTime = true;
 	bool bilinearTexture = true;
 
 	float expMultiplier;

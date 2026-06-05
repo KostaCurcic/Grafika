@@ -7,7 +7,7 @@
 #include <Windows.h>
 
 //#define NONRT
-#define THRCOUNT 4
+#define THRCOUNT 12
 
 float angle = 0;
 char *imgptr;

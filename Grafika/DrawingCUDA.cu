@@ -360,6 +360,15 @@ void InitDrawing(char * ptr)
 		return;
 	}
 
+	// traceRand recurses once per bounce (sd.bounces, default 20). The default
+	// per-thread stack (1 KB) overflows that deep recursion and the path-tracer
+	// kernel aborts with cudaErrorLaunchFailure (719). Raise the stack to fit.
+	cudaStatus = cudaDeviceSetLimit(cudaLimitStackSize, 32 * 1024);
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaDeviceSetLimit(stack) failed: %s\n", cudaGetErrorString(cudaStatus));
+		return;
+	}
+
 	cudaStatus = cudaMalloc((void**)&devImgPtr, XRES * YRES * 3 * sizeof(char));
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaMalloc failed!");

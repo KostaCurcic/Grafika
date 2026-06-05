@@ -43,7 +43,7 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	sd.ambient.mat.color.g = 0.46f;
 	sd.ambient.mat.color.b = 0.60f;
 	sd.ambient.mat.color.r = 0.20f;
-	sd.ambient.intenisty = .04f;
+	sd.ambient.intenisty = .02f;
 
 	SceneLoader sl;
 	sl.loadObj(R"(..\Objects\Dolphin.obj)", Point(0, 0, 8));
@@ -61,6 +61,14 @@ void initial(WPARAM wParam, LPARAM lParam) {
 	s1.mat.mirror = true;
 	s1.mat.refIndex = 1.5f;
 	sl.addSphere(s1);
+
+	Sphere s2 = Sphere(Point(-3, 5, 8), 1.5);
+	//s2.mat.color.r = 0.5f;
+	//s2.mat.color.g = 1.0f;
+	//s2.mat.color.b = 1.0f;
+	s2.mat.transparent = true;
+	s2.mat.refIndex = 1.8f;
+	sl.addSphere(s2);
 
 	Material m1 = Material(R"(..\tile.bmp)");
 	sl.addMaterial(m1);
