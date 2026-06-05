@@ -1,0 +1,228 @@
+# Single-room house test scene.
+# Same scale and tiled floor as the original scene; one green sphere on the
+# floor (lit by the shaft through window 1), no lenses or imported mesh.
+# Built with as few triangles as possible (24 triangles + 1 sphere).
+#
+# House layout: a box with a gable roof, ridge running along Z.
+#   footprint x[-4, 4], z[6, 14];  ground y=-2,  eaves y=2,  ridge y=4.
+# Every wall/roof triangle is wound so its normal points OUTWARD (the diffuse
+# bounce relies on the normal direction). The -X wall faces the sun and has two
+# window openings (actual holes) cut into it.
+
+# ---- Render / camera settings (identical to the original scene) ----
+camera 0 0 -2
+exposure 20000
+dof 0.005
+focal 5.0
+gamma 2.224
+ambient 0.20 0.46 0.60 0.02
+
+# ---- Warm key light (the "sun") ----
+# Lowered (y 150 -> 48) so the shaft through window 1 reaches the middle of the
+# room (floor hit ~ x=0, z=9) instead of clinging to the wall.
+light
+  center -100 48 -10
+  radius 15
+  intensity 2.0
+  color 0.94 0.7 0.2
+end
+
+# ---- Tiled floor (reused from the original scene) ----
+material tile
+  texture ..\tile.bmp
+end
+
+triangle
+  v0 7 -2 0
+  v1 -7 -2 0
+  v2 7 -2 21
+  material tile
+  uv0 1 0 0
+  uv1 0 0 0
+  uv2 1 1 0
+end
+
+triangle
+  v0 -7 -2 0
+  v1 -7 -2 21
+  v2 7 -2 21
+  material tile
+  uv0 0 0 0
+  uv1 0 1 0
+  uv2 1 1 0
+end
+
+# ---- Green sphere, resting on the floor in the shaft of light ----
+# from window 1. Floor y=-2, radius 1 -> centre y=-1. Diffuse (no mirror) so
+# the light landing on it is clearly visible.
+sphere
+  center 0 -1 9
+  radius 1
+  color 0.5 1.0 0.5
+  mirror
+end
+
+# ===========================================================
+#  House walls (beige) and roof (terracotta)
+# ===========================================================
+
+# ---- Front gable wall (z=6, faces the camera) ----
+triangle
+  v0 -4 -2 6
+  v1 -4  2 6
+  v2  4 -2 6
+  color 0.8 0.75 0.65
+end
+triangle
+  v0  4 -2 6
+  v1 -4  2 6
+  v2  4  2 6
+  color 0.8 0.75 0.65
+end
+triangle
+  v0 -4  2 6
+  v1  0  4 6
+  v2  4  2 6
+  color 0.8 0.75 0.65
+end
+
+# ---- Back gable wall (z=14) ----
+triangle
+  v0  4 -2 14
+  v1  4  2 14
+  v2 -4 -2 14
+  color 0.8 0.75 0.65
+end
+triangle
+  v0 -4 -2 14
+  v1  4  2 14
+  v2 -4  2 14
+  color 0.8 0.75 0.65
+end
+triangle
+  v0 -4  2 14
+  v1  4  2 14
+  v2  0  4 14
+  color 0.8 0.75 0.65
+end
+
+# ---- Left side wall (x=-4, faces the sun) ----
+# Tessellated around two window openings (real holes, no geometry there).
+# Both windows span y[-0.75, 0.75]; openings at z[7.5, 9.0] and z[11.0, 12.5].
+# Wall is split into: solid bottom band, solid top band, and a middle band cut
+# into three solid pieces (before / between / after the windows). All wound for
+# the outward -X normal.
+
+# bottom band  (y[-2, -0.75])
+triangle
+  v0 -4 -2     6
+  v1 -4 -2     14
+  v2 -4 -0.75  6
+  color 0.8 0.75 0.65
+end
+triangle
+  v0 -4 -0.75  6
+  v1 -4 -2     14
+  v2 -4 -0.75  14
+  color 0.8 0.75 0.65
+end
+
+# top band  (y[0.75, 2])
+triangle
+  v0 -4 0.75 6
+  v1 -4 0.75 14
+  v2 -4 2    6
+  color 0.8 0.75 0.65
+end
+triangle
+  v0 -4 2    6
+  v1 -4 0.75 14
+  v2 -4 2    14
+  color 0.8 0.75 0.65
+end
+
+# middle band, before window 1  (z[6, 7.5])
+triangle
+  v0 -4 -0.75 6
+  v1 -4 -0.75 7.5
+  v2 -4  0.75 6
+  color 0.8 0.75 0.65
+end
+triangle
+  v0 -4  0.75 6
+  v1 -4 -0.75 7.5
+  v2 -4  0.75 7.5
+  color 0.8 0.75 0.65
+end
+
+# middle band, between the windows  (z[9.0, 11.0])
+triangle
+  v0 -4 -0.75 9
+  v1 -4 -0.75 11
+  v2 -4  0.75 9
+  color 0.8 0.75 0.65
+end
+triangle
+  v0 -4  0.75 9
+  v1 -4 -0.75 11
+  v2 -4  0.75 11
+  color 0.8 0.75 0.65
+end
+
+# middle band, after window 2  (z[12.5, 14])
+triangle
+  v0 -4 -0.75 12.5
+  v1 -4 -0.75 14
+  v2 -4  0.75 12.5
+  color 0.8 0.75 0.65
+end
+triangle
+  v0 -4  0.75 12.5
+  v1 -4 -0.75 14
+  v2 -4  0.75 14
+  color 0.8 0.75 0.65
+end
+
+# ---- Right side wall (x=4) ----
+triangle
+  v0  4 -2 6
+  v1  4  2 6
+  v2  4 -2 14
+  color 0.8 0.75 0.65
+end
+triangle
+  v0  4 -2 14
+  v1  4  2 6
+  v2  4  2 14
+  color 0.8 0.75 0.65
+end
+
+# ---- Roof, left slope (eave x=-4 up to ridge) ----
+triangle
+  v0 -4  2 6
+  v1 -4  2 14
+  v2  0  4 6
+  color 0.6 0.25 0.2
+end
+triangle
+  v0  0  4 6
+  v1 -4  2 14
+  v2  0  4 14
+  color 0.6 0.25 0.2
+end
+
+# ---- Roof, right slope (eave x=4 up to ridge) ----
+triangle
+  v0  4  2 6
+  v1  0  4 6
+  v2  4  2 14
+  color 0.6 0.25 0.2
+end
+triangle
+  v0  4  2 14
+  v1  0  4 6
+  v2  0  4 14
+  color 0.6 0.25 0.2
+end
+
+# (The two windows are openings in the left wall above - no geometry there.)

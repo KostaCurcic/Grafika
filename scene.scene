@@ -1,0 +1,79 @@
+# Render / camera settings
+camera 0 0 -2
+exposure 20000
+dof 0.005
+focal 5.0
+gamma 2.224
+ambient 0.20 0.46 0.60 0.02
+
+# Imported mesh (path + offset)
+obj ..\Objects\Dolphin.obj 0 0 8
+
+# Warm key light
+light
+  center -100 150 -10
+  radius 15
+  intensity 2.0
+  color 0.94 0.7 0.2
+end
+
+# Green mirror sphere  -> spheres[0] (moved with I/J/K/L/O/U keys)
+sphere
+  center 5 -1 5
+  radius 1
+  color 0.5 1.0 0.5
+  mirror
+  refindex 1.5
+end
+
+# Tiled floor material
+material tile
+  texture ..\tile.bmp
+end
+
+triangle
+  v0 7 -2 0
+  v1 -7 -2 0
+  v2 7 -2 21
+  material tile
+  uv0 1 0 0
+  uv1 0 0 0
+  uv2 1 1 0
+end
+
+triangle
+  v0 -7 -2 0
+  v1 -7 -2 21
+  v2 7 -2 21
+  material tile
+  uv0 0 0 0
+  uv1 0 1 0
+  uv2 1 1 0
+end
+
+# Two cut, transparent half-spheres  -> spheres[1] / spheres[2]
+sphere
+  center 0 -1 11
+  radius 1
+  color 1 1 1
+  transparent
+  refindex 2.3
+  cut -0.5 -1 11  -1 0 0
+end
+
+sphere
+  center -1 -1 11
+  radius 1
+  color 1 1 1
+  transparent
+  refindex 2.3
+  cut -0.5 -1 11  1 0 0
+end
+
+# Mirror triangle
+triangle
+  v0 -5 -2 4
+  v1 -5.5 2 6
+  v2 -5 -2 8
+  mirror
+end

@@ -32,86 +32,8 @@ void initial(WPARAM wParam, LPARAM lParam) {
 
 	arr = (char*)malloc(XRES * YRES * 3);
 
-	sd.camera = Point(0, 0, -2);
-	sd.genCameraCoords();
-
-	sd.expMultiplier = 20000;
-	sd.dofStr = 0.005f;
-	sd.focalDistance = 5.0f;
-	sd.gamma = 2.224f;
-
-	sd.ambient.mat.color.g = 0.46f;
-	sd.ambient.mat.color.b = 0.60f;
-	sd.ambient.mat.color.r = 0.20f;
-	sd.ambient.intenisty = .02f;
-
 	SceneLoader sl;
-	sl.loadObj(R"(..\Objects\Dolphin.obj)", Point(0, 0, 8));
-
-	Light l1 = Light(Sphere(Point(-100, 150, -10), 15), 2.0f);
-	l1.mat.color.r = 0.94f;
-	l1.mat.color.g = 0.7f;
-	l1.mat.color.b = 0.2f;
-	sl.addLight(l1);
-
-	Sphere s1 = Sphere(Point(5, -1, 5), 1);
-	s1.mat.color.r = 0.5f;
-	s1.mat.color.g = 1.0f;
-	s1.mat.color.b = 0.5f;
-	s1.mat.mirror = true;
-	s1.mat.refIndex = 1.5f;
-	sl.addSphere(s1);
-
-	Sphere s2 = Sphere(Point(-3, 5, 8), 1.5);
-	//s2.mat.color.r = 0.5f;
-	//s2.mat.color.g = 1.0f;
-	//s2.mat.color.b = 1.0f;
-	s2.mat.transparent = true;
-	s2.mat.refIndex = 1.8f;
-	sl.addSphere(s2);
-
-	Material m1 = Material(R"(..\tile.bmp)");
-	sl.addMaterial(m1);
-
-	Triangle t1 = Triangle(Point(7, -2, 0), Point(-7, -2, 0), Point(7, -2, 21));
-	t1.mat = m1;
-	t1.t0 = Point(1, 0, 0);
-	t1.t1 = Point(0, 0, 0);
-	t1.t2 = Point(1, 1, 0);
-	//t1.mirror = true;
-	sl.addTriangle(t1);
-
-	Triangle t2 = Triangle(Point(-7, -2, 0), Point(-7, -2, 21), Point(7, -2, 21));
-	t2.mat = m1;
-	t2.t0 = Point(0, 0, 0);
-	t2.t1 = Point(0, 1, 0);
-	t2.t2 = Point(1, 1, 0);
-	//t2.mirror = true;
-	sl.addTriangle(t2);
-
-	/*Sphere s2 = Sphere(Point(sinf(0) * 3, -1, 8 + cosf(0) * 3), 1);
-	s2.mat.color = ColorReal(1, 1, 1);
-	s2.mat.transparent = true;
-	s2.mat.refIndex = 2.3f;
-	s2.cut = true;
-	s2.cutPoint = s2.c - Point(0.5, 0, 0);
-	s2.cutVector = Vector(-1, 0, 0);
-	sl.addSphere(s2);
-
-	s2 = Sphere(Point(sinf(0) * 3 - 1, -1, 8 + cosf(0) * 3), 1);
-	s2.mat.color = ColorReal(1, 1, 1);
-	s2.mat.transparent = true;
-	s2.mat.refIndex = 2.3f;
-	s2.cut = true;
-	s2.cutPoint = s2.c - Point(-0.5, 0, 0);
-	s2.cutVector = Vector(1, 0, 0);
-	sl.addSphere(s2);*/
-
-	Triangle t3 = Triangle(Point(-5, -2, 4), Point(-5.5f, 2, 6), Point(-5, -2, 8));
-	t3.mat.mirror = true;
-	sl.addTriangle(t3);
-
-	sl.finalize(sd);
+	sl.loadScene(R"(..\house.scene)", sd);
 
 	InitDrawing(arr);
 
@@ -209,7 +131,11 @@ void testKeys() {
 			sd.camDist /= 1.1f;
 			changed = true;
 		}
-		if (GetAsyncKeyState('I')) {
+		// These keys move spheres[0] and tweak the refraction index of the lens
+		// (spheres[1]). The house.scene has no spheres, so they're commented out
+		// to avoid indexing past the end of the (empty) sphere array. Re-enable
+		// them when loading a scene that actually contains spheres.
+		/*if (GetAsyncKeyState('I')) {
 			sd.spheres[0].c.z += 0.03f;
 			changed = true;
 		}
@@ -240,7 +166,7 @@ void testKeys() {
 		if (GetAsyncKeyState('2')) {
 			sd.spheres[1].mat.refIndex /= 1.03f;
 			changed = true;
-		}
+		}*/
 		/*if (GetAsyncKeyState(VK_RBUTTON)) {
 			POINT p;
 			GetCursorPos(&p);
@@ -315,6 +241,10 @@ Keys:
 	Num 5, 2 - Focal distance
 	Num 6, 3 - DOF (Aparature size)
 	-, + - gamma control
+	9, 0 - Ray bounces (less / more)
+	F - Toggle real-time / accumulation mode
+	B - Toggle bilinear texture filtering
+	R - Reset render
 ---------------------------------------------
 )");
 

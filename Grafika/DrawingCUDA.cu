@@ -489,7 +489,8 @@ void DrawFrame()
 
 		timer = now;
 
-		printf("Iteration : %d (%.2f)it/s             \r", iteration, itps);
+		printf("It %4d  %.2f it/s | Exp %.0f  Gamma %.3f  Bounces %d | Focal %.2f  DOF %.4f  FOV %.2f          \r",
+			iteration, itps, sd.expMultiplier, sd.gamma, sd.bounces, sd.focalDistance, sd.dofStr, sd.camDist);
 
 		// Copy output vector from GPU buffer to host memory.
 		cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);

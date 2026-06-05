@@ -5,6 +5,7 @@
 
 #include <math.h>
 #include <Windows.h>
+#include <stdio.h>
 
 //#define NONRT
 #define THRCOUNT 12
@@ -328,13 +329,38 @@ void drawPixel(float x, float y, char *pix) {
 
 void DrawFrame()
 {
-	if(sd.realTime) InitFrame();
-	//signal = THRCOUNT;
-	//WakeByAddressAll(&signal);
+	if (sd.realTime) {
+		InitFrame();
+		return;
+	}
 
-	/*while (signal > 0) {
-		WaitOnAddress(&signal, &signal, sizeof(int), INFINITE);
-	}*/
+	// Accumulation mode: print the same live status line as the CUDA build.
+	// The worker threads each render an equal band and bump their own
+	// iteration[i] in lockstep, so iteration[0] is a representative sample
+	// count. DrawFrame is called far more often than an iteration completes,
+	// so it/s is measured from the change in iteration count over wall-clock
+	// time and only refreshed when a new sample actually lands.
+	static LARGE_INTEGER lastTime = { 0 };
+	static int lastIteration = 0;
+	static double itps = 0;
+
+	int it = iteration[0];
+	if (it != lastIteration) {
+		LARGE_INTEGER freq, now;
+		QueryPerformanceFrequency(&freq);
+		QueryPerformanceCounter(&now);
+		// it > lastIteration guards against a reset (iteration zeroed) producing
+		// a negative rate; we just resync instead.
+		if (lastTime.QuadPart != 0 && it > lastIteration) {
+			double secs = (double)(now.QuadPart - lastTime.QuadPart) / freq.QuadPart;
+			if (secs > 0) itps = (it - lastIteration) / secs;
+		}
+		lastTime = now;
+		lastIteration = it;
+	}
+
+	printf("It %4d  %.2f it/s | Exp %.0f  Gamma %.3f  Bounces %d | Focal %.2f  DOF %.4f  FOV %.2f          \r",
+		it, itps, sd.expMultiplier, sd.gamma, sd.bounces, sd.focalDistance, sd.dofStr, sd.camDist);
 }
 
 DEVICE_PREFIX void SceneData::genCameraCoords()
