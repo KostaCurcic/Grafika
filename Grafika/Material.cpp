@@ -1,16 +1,16 @@
 #include "Material.h"
 
-Material::Material()
+DEVICE_PREFIX Material::Material()
 {
 	color = ColorReal(0.95f, 0.95f, 0.95f);
 }
 
-Material::Material(ColorReal &c)
+DEVICE_PREFIX Material::Material(ColorReal &c)
 {
 	color = c;
 }
 
-Material::Material(Texture &t)
+DEVICE_PREFIX Material::Material(Texture &t)
 {
 	color = ColorReal(1, 1, 1);
 	texture = t;

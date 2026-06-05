@@ -91,6 +91,28 @@ DEVICE_PREFIX Color ColorReal::getPixColor(float gamma, float exp)
 				 ret.b > 255 ? 255 : ret.b);
 }
 
+DEVICE_PREFIX Color ColorReal::getPixColorDesat(float gamma, float exp)
+{
+	// same exposure + gamma mapping as getPixColor, in 0..255 display space
+	float dr = powf(r * 255.0f * exp, 1 / gamma);
+	float dg = powf(g * 255.0f * exp, 1 / gamma);
+	float db = powf(b * 255.0f * exp, 1 / gamma);
+
+	// whatever a channel pushes past 255 spills into the other two, so an
+	// overexposed color climbs toward white instead of clamping to a primary
+	float overR = dr > 255.0f ? dr - 255.0f : 0.0f;
+	float overG = dg > 255.0f ? dg - 255.0f : 0.0f;
+	float overB = db > 255.0f ? db - 255.0f : 0.0f;
+
+	dr += overG + overB;
+	dg += overR + overB;
+	db += overR + overG;
+
+	return Color(dr > 255 ? 255 : dr,
+				 dg > 255 ? 255 : dg,
+				 db > 255 ? 255 : db);
+}
+
 DEVICE_PREFIX Color ColorReal::getPixColor()
 {
 	ColorReal ret(r * 255.0f,

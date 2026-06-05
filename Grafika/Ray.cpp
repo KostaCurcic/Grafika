@@ -101,6 +101,7 @@ DEVICE_PREFIX bool Ray::intersects(const GraphicsObject *g, ColorReal* col, floa
 	case LIGHT:
 		return intersects(*((Sphere*)g), col, t);
 	}
+	return false;
 }
 
 DEVICE_PREFIX Point Ray::getPointFromT(float t) const

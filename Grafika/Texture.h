@@ -6,7 +6,7 @@
 class Texture
 {
 public:
-	Texture();
+	DEVICE_PREFIX Texture();
 	Texture(const char *filename);
 	void Unload();
 

@@ -4,8 +4,8 @@
 #include "Texture.h"
 #include "SceneData.h"
 
-#define XRES 960
-#define YRES 540
+#define XRES 1920
+#define YRES 1080
 
 //#define NONRT
 

@@ -12,7 +12,7 @@ public:
 	DEVICE_PREFIX Material();
 	DEVICE_PREFIX Material(ColorReal &);
 	DEVICE_PREFIX Material(Texture &);
-	DEVICE_PREFIX Material(const char *path);
+	Material(const char *path); // host-only: loads a texture from disk
 
 	DEVICE_PREFIX ColorReal getColor(float x, float y) const;
 

@@ -234,7 +234,7 @@ DWORD WINAPI ThreadFunc(void* data) {
 					imgptr[(i * XRES + j) * 3 + 1] = gc;
 					imgptr[(i * XRES + j) * 3 + 2] = bc;*/
 
-					*((Color*)imgptr + (i * XRES + j)) = (((ColorReal*)realImg) + (i * XRES + j))->getPixColor(sd.gamma, sd.expMultiplier / iteration[(int)data]);
+					*((Color*)imgptr + (i * XRES + j)) = (((ColorReal*)realImg) + (i * XRES + j))->getPixColorDesat(sd.gamma, sd.expMultiplier / iteration[(int)data]);
 				}
 			}
 		}

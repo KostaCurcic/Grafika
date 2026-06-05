@@ -268,7 +268,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	Point colPoint;
 
 	*rm += traceRand(ray, sd, state + ((xi * XRES + yi + 3) + (iter* 123)) % RANDGENS, sd->bounces);
-	*pix = rm->getPixColor(sd->gamma, sd->expMultiplier / iter);
+	*pix = rm->getPixColorDesat(sd->gamma, sd->expMultiplier / iter);
 
 	return;
 }
@@ -328,7 +328,7 @@ __global__ void drawPixelCUDA(char* ptr, SceneData *sd) {
 	Point colPoint;
 
 	if (findColPoint(ray, &colPoint, &normal, &obj, sd)) {
-		if (obj->shape == LIGHT) light == 1.0f;
+		if (obj->shape == LIGHT) light = 1.0f;
 		else light = pointLit(colPoint, normal, obj, sd);
 
 		if (obj->shape == TRIANGLE && ((Triangle*)obj)->mat.texture.width != 0) {

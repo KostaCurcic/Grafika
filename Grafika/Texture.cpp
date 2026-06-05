@@ -4,7 +4,7 @@
 
 #include "Point.h"
 
-Texture::Texture()
+DEVICE_PREFIX Texture::Texture()
 {
 	width = height = 0;
 	data = nullptr;

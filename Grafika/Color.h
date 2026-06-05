@@ -27,6 +27,7 @@ public:
 	DEVICE_PREFIX ColorReal& operator-=(const ColorReal&);
 
 	DEVICE_PREFIX Color getPixColor(float gamma, float exp);
+	DEVICE_PREFIX Color getPixColorDesat(float gamma, float exp);
 	DEVICE_PREFIX Color getPixColor();
 
 	DEVICE_PREFIX ColorReal getColorIntesity(float gamma);
