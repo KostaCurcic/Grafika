@@ -26,7 +26,6 @@ float *realImg = nullptr;
 
 int iteration = 1;
 bool started = false;
-curandState *devState;
 int fc = 0;
 
 SceneData sd, devSdCopy;
@@ -85,7 +84,24 @@ void InitFrame()
 
 }
 
-__device__ ColorReal traceRandIter(Ray ray, SceneData* sd, curandState* state, Ray* newRay) {
+
+__device__ __forceinline__ unsigned int pcg_hash(unsigned int x) {
+	x = x * 747796405u + 2891336453u;
+	unsigned int w = ((x >> ((x >> 28u) + 4u)) ^ x) * 277803737u;
+	return (w >> 22u) ^ w;
+}
+
+// each time you need a uniform float in [0,1):
+// State is advanced by a full-period LCG (visits all 2^32 values in one cycle, so it
+// can never get stuck on a constant); the returned value is a hash of the state.
+__device__ __forceinline__ float next(unsigned int& state) {
+	state = state * 747796405u + 2891336453u;          // LCG advance, full period 2^32
+	unsigned int w = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return ((w >> 22u) ^ w) * (1.0f / 4294967296.0f);  // output = hash of state
+}
+
+
+__device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ray* newRay) {
 	float t1, nearest = INFINITY;
 	ColorReal colorMultiplier(1, 1, 1);
 	ColorReal colGet;
@@ -150,19 +166,19 @@ __device__ ColorReal traceRandIter(Ray ray, SceneData* sd, curandState* state, R
 			ray.o = colPoint;
 			if (ray.d * colNormal > 0) colNormal = -colNormal;
 			do {
-				ray.d.x = curand_uniform(state) * 2 - 1.0f;
-				ray.d.y = curand_uniform(state) * 2 - 1.0f;
-				ray.d.z = curand_uniform(state) * 2 - 1.0f;
+				ray.d.x = next(rng) * 2 - 1.0f;
+				ray.d.y = next(rng) * 2 - 1.0f;
+				ray.d.z = next(rng) * 2 - 1.0f;
 				ray.d.Normalize();
 				if (ray.d * colNormal <= 0) ray.d = -ray.d;
-			} while (ray.d * colNormal <= curand_uniform(state));
+			} while (ray.d * colNormal <= next(rng));
 			*newRay = ray;
 			return colorMultiplier;
 		}
 	}
 }
 
-__device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int iterations = 20) {
+__device__ ColorReal traceRand(Ray ray, SceneData *sd, unsigned int& rng, int iterations = 20) {
 	float t1, nearest = INFINITY;
 	ColorReal colorMultiplier(1, 1, 1);
 	ColorReal colGet;
@@ -218,22 +234,22 @@ __device__ ColorReal traceRand(Ray ray, SceneData *sd, curandState *state, int i
 	}
 	else {
 		if (colObj->mat.mirror) {
-			return colorMultiplier *= traceRand(Ray(colPoint, ray.d.Reflect(colNormal)), sd, state, iterations - 1);
+			return colorMultiplier *= traceRand(Ray(colPoint, ray.d.Reflect(colNormal)), sd, rng, iterations - 1);
 		}
 		else if (colObj->mat.transparent) {
-			return colorMultiplier *= traceRand(Ray(colPoint, ray.d.Refract(colNormal, colObj->mat.refIndex)), sd, state, iterations - 1);
+			return colorMultiplier *= traceRand(Ray(colPoint, ray.d.Refract(colNormal, colObj->mat.refIndex)), sd, rng, iterations - 1);
 		}
 		else {
 			ray.o = colPoint;
 			if (ray.d * colNormal > 0) colNormal = -colNormal;
 			do {
-				ray.d.x = curand_uniform(state) * 2 - 1.0f;
-				ray.d.y = curand_uniform(state) * 2 - 1.0f;
-				ray.d.z = curand_uniform(state) * 2 - 1.0f;
+				ray.d.x = next(rng) * 2 - 1.0f;
+				ray.d.y = next(rng) * 2 - 1.0f;
+				ray.d.z = next(rng) * 2 - 1.0f;
 				ray.d.Normalize();
 				if (ray.d * colNormal <= 0) ray.d = -ray.d;
-			} while (ray.d * colNormal <= curand_uniform(state));
-			return colorMultiplier *= traceRand(ray, sd, state, iterations - 1);
+			} while (ray.d * colNormal <= next(rng));
+			return colorMultiplier *= traceRand(ray, sd, rng, iterations - 1);
 		}
 	}
 }
@@ -292,21 +308,16 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 	return false;
 }
 
-__global__ void setup_kernel(curandState *state) {
-
-	int idx = threadIdx.x + blockDim.x*blockIdx.x;
-	if (idx >= RANDGENS) return;
-	curand_init(1234 + idx, idx, 0, &state[idx]);
-}
-
-__global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int iter, curandState *state) {
+__global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int iter) {
 	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
 	int yi = blockIdx.y * THRCOUNT + threadIdx.y;
 
+	unsigned int rng = pcg_hash((xi * XRES + yi + 3) ^ pcg_hash(iter));
+
 	if (xi > XRES || yi > YRES) return;
 
-	float x = (xi * 2.0f + curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)) * 2.0f) / YRES - XRES / (float)YRES;
-	float y = (yi * 2.0f + curand_uniform(state + ((xi * 100 + yi + 3) % RANDGENS)) * 2.0f) / YRES - 1.0;
+	float x = (xi * 2.0f + next(rng) * 2.0f) / YRES - XRES / (float)YRES;
+	float y = (yi * 2.0f + next(rng) * 2.0f) / YRES - 1.0;
 
 	Color *pix = (Color*)(ptr + (yi * XRES + xi) * 3);
 	ColorReal *rm = (ColorReal*)(realMap + (yi * XRES + xi) * 3);
@@ -328,8 +339,8 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		float pointMove = sd->dofStr, xOff, yOff;
 		float pointBack = ((Vector)(sd->camera - pixelPoint)).Length();
 
-		float ang = curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 6.28315f;
-		pointMove *= curand_uniform(state + ((xi * 100 + yi) % RANDGENS));
+		float ang = next(rng) * 6.28315f;
+		pointMove *= next(rng);
 		xOff = sinf(ang) * sqrtf(pointMove);
 		yOff = cosf(ang) * sqrtf(pointMove);
 		/*do {
@@ -354,13 +365,13 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 			newPixelColor = ColorReal(0, 0, 0);
 			break;
 		}
-		newPixelColor *= traceRandIter(ray, sd, state + ((xi * XRES + yi + 3) + (iter * 123)) % RANDGENS, &newRay);
+		newPixelColor *= traceRandIter(ray, sd, rng, &newRay);
 		if (newRay.o.x == -INFINITY) break;
 		ray = newRay;
 	}
 	*rm += newPixelColor;
 #else
-	* rm += traceRand(ray, sd, state + ((xi * XRES + yi + 3) + (iter * 123)) % RANDGENS, sd->bounces);
+	* rm += traceRand(ray, sd, rng, sd->bounces);
 #endif // ITER
 
 
@@ -507,14 +518,6 @@ void InitDrawing(char * ptr)
 		return;
 	}
 
-	cudaStatus = cudaMalloc((void**)&devState, sizeof(curandState) * RANDGENS);
-	if (cudaStatus != cudaSuccess) {
-		printf("cudaMalloc failed!");
-		return;
-	}
-
-	setup_kernel << <10, RANDGENS / 10 >> > (devState);
-
 	InitFrame();
 
 }
@@ -558,7 +561,7 @@ void DrawFrame()
 
 		cudaError_t cudaStatus;
 
-		drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devSd, iteration, devState);
+		drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devSd, iteration);
 
 		cudaStatus = cudaGetLastError();
 		if (cudaStatus != cudaSuccess) {
