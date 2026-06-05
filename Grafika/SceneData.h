@@ -15,6 +15,7 @@ public:
 	bool realTime = true;
 	bool bilinearTexture = true;
 	bool useLightPredict = false;
+	bool useMirrorPredict = false;
 
 	float expMultiplier;
 	unsigned short bounces = 20;

@@ -152,15 +152,221 @@ __device__ ColorReal getProbabilisticLight(Point& p, Vector n, GraphicsObject* s
 	return totalLight;
 }
 
+// What kind of surface a trace step landed on. Used by the accumulation loop to decide
+// double-count suppression: a light reached through a mirror was already accounted for by
+// the diffuse vertex's mirror NEE, so the flag must survive a HIT_MIRROR step.
+#define HIT_DIFFUSE     0
+#define HIT_MIRROR      1
+#define HIT_TRANSPARENT 2
+#define HIT_LIGHT       3
+#define HIT_SKY         4
 
-__device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ray* newRay, ColorReal* predictedLight, bool *predictRan) {
+// ---- Exact mirror NEE (Alhazen's problem) -------------------------------------------------
+// Given a diffuse point P and a point Q on a light, we want the point M on a mirror sphere
+// where the ray P->M reflects exactly toward Q. The reflection point always lies in the plane
+// through C (sphere centre), P and Q, so we reduce to a 1D search over the angle phi around
+// that circle. The reflection law in that plane is: the unit vectors M->P and M->Q sum to a
+// vector parallel to the (radial) surface normal -- i.e. their combined tangential component
+// is zero. alhazenF returns that tangential component; its roots are the candidate points.
+//
+// (Px,0) and (Qx,Qy) are P and Q in 2D plane coordinates with C at the origin and P on the
+// +x axis. rho is the mirror radius.
+__device__ __forceinline__ float alhazenF(float phi, float Px, float Qx, float Qy, float rho) {
+	float c = cosf(phi), s = sinf(phi);
+	float mx = rho * c, my = rho * s;
+	float dpx = Px - mx, dpy = -my;       // P - M   (Py = 0)
+	float dqx = Qx - mx, dqy = Qy - my;   // Q - M
+	float lp = sqrtf(dpx * dpx + dpy * dpy);
+	float lq = sqrtf(dqx * dqx + dqy * dqy);
+	float hx = dpx / lp + dqx / lq;       // unit(P-M) + unit(Q-M)
+	float hy = dpy / lp + dqy / lq;
+	return hx * (-s) + hy * c;            // component along the tangent (-s, c)
+}
+
+// Returns the half-vector . normal at phi if this is a real outward reflection (both points on
+// the lit side and the half-vector points outward), else -1. Used to pick the physical root.
+__device__ __forceinline__ float alhazenScore(float phi, float Px, float Qx, float Qy, float rho) {
+	float c = cosf(phi), s = sinf(phi);
+	float mx = rho * c, my = rho * s;
+	float dpx = Px - mx, dpy = -my;
+	float dqx = Qx - mx, dqy = Qy - my;
+	float lp = sqrtf(dpx * dpx + dpy * dpy);
+	float lq = sqrtf(dqx * dqx + dqy * dqy);
+	float upx = dpx / lp, upy = dpy / lp;
+	float uqx = dqx / lq, uqy = dqy / lq;
+	float upn = upx * c + upy * s;
+	float uqn = uqx * c + uqy * s;
+	float hn  = (upx + uqx) * c + (upy + uqy) * s;
+	if (upn > 0 && uqn > 0 && hn > 0) return hn;
+	return -1.0f;
+}
+
+// Solve Alhazen for the mirror sphere (centre C, radius rho), points P and Q. On success fills
+// Mout with the 3D reflection point. When useHint is set we pick the valid root whose 3D point
+// is closest to Mhint (keeps the finite-difference solves on the same reflection branch as the
+// base solve); otherwise we pick the most physical root (largest outward half-vector).
+__device__ bool solveAlhazen(const Point& P, const Point& Q, const Point& C, float rho,
+                             Point& Mout, bool useHint, Point Mhint) {
+	Vector a = P - C;
+	Vector b = Q - C;
+	Vector w = a % b;                 // plane normal (cross product)
+	if (w.Length() < 1e-7f) return false;   // P, Q, C colinear -> degenerate, skip
+
+	Vector e1 = a; e1.Normalize();
+	Vector e2 = w % e1; e2.Normalize();     // in-plane axis, perpendicular to e1
+
+	float Px = a * e1;                 // = |a|  (P lies on +e1)
+	float Qx = b * e1;
+	float Qy = b * e2;
+
+	const float TWO_PI = 6.2831853f;
+	const int   N = 48;
+
+	float rootPhi[6];
+	int   nr = 0;
+
+	float fprev = alhazenF(0.0f, Px, Qx, Qy, rho);
+	for (int sIdx = 1; sIdx <= N && nr < 6; sIdx++) {
+		float phi = TWO_PI * sIdx / N;
+		float f = alhazenF(phi, Px, Qx, Qy, rho);
+		if ((fprev < 0 && f >= 0) || (fprev > 0 && f <= 0)) {
+			// Bracketed a root in [lo, hi]; refine by bisection.
+			float lo = TWO_PI * (sIdx - 1) / N, hi = phi, flo = fprev;
+			for (int it = 0; it < 30; it++) {
+				float mid = 0.5f * (lo + hi);
+				float fm = alhazenF(mid, Px, Qx, Qy, rho);
+				if ((flo < 0 && fm < 0) || (flo > 0 && fm > 0)) { lo = mid; flo = fm; }
+				else hi = mid;
+			}
+			float pr = 0.5f * (lo + hi);
+			if (alhazenScore(pr, Px, Qx, Qy, rho) > 0) rootPhi[nr++] = pr;
+		}
+		fprev = f;
+	}
+	if (nr == 0) return false;
+
+	int sel = 0;
+	if (useHint) {
+		float best = 1e30f;
+		for (int i = 0; i < nr; i++) {
+			float c = cosf(rootPhi[i]), s = sinf(rootPhi[i]);
+			Point Mi = C + (e1 * (rho * c) + e2 * (rho * s));
+			float d = Vector(Mi - Mhint).Length();
+			if (d < best) { best = d; sel = i; }
+		}
+	}
+	else {
+		float best = -1.0f;
+		for (int i = 0; i < nr; i++) {
+			float sc = alhazenScore(rootPhi[i], Px, Qx, Qy, rho);
+			if (sc > best) { best = sc; sel = i; }
+		}
+	}
+
+	float c = cosf(rootPhi[sel]), s = sinf(rootPhi[sel]);
+	Mout = C + (e1 * (rho * c) + e2 * (rho * s));
+	return true;
+}
+
+// Exact mirror NEE: for each mirror sphere and light, sample a point Q on the light, solve for
+// the reflection point M, and connect P->M->Q. Because M is found exactly, the path always
+// reaches the light -- so every sample contributes (no waiting for a lucky reflection). The
+// curved mirror stretches the light's image, so we weight by a numerically estimated Jacobian
+// dOmega_P / dArea_Q (how much light-surface area maps to solid angle at P through the mirror).
+__device__ ColorReal getMirrorLight(Point& p, Vector n, GraphicsObject* self, SceneData* sd, unsigned int& rng) {
+	ColorReal total = ColorReal(0, 0, 0);
+	float t;
+
+	for (int m = 0; m < sd->nSpheres; m++) {
+		if (!sd->spheres[m].mat.mirror) continue;
+
+		float rho = sd->spheres[m].r;
+		Point  cm = sd->spheres[m].c;
+		ColorReal mirrorCol = sd->spheres[m].mat.getColor(0, 0).getColorIntesity(sd->gamma);
+
+		for (int k = 0; k < sd->nLights; k++) {
+			float rL = sd->lights[k].r;
+			Point cL = sd->lights[k].c;
+
+			// Sample a point Q on the light's surface; qN is the light's outward normal there.
+			Vector qN = Vector(next(rng) * 2 - 1.0f, next(rng) * 2 - 1.0f, next(rng) * 2 - 1.0f).Normalize();
+			Point  Q = cL + qN * rL;
+
+			Point M;
+			if (!solveAlhazen(p, Q, cm, rho, M, false, Point())) continue;
+
+			Vector toM = M - p;
+			float distPM = toM.Length();
+			Vector wP = toM / distPM;                 // unit P->M
+			float cosP = n * wP;
+			if (cosP <= 0) continue;                  // mirror image is below our surface
+
+			Vector MtoQ = Q - M;
+			float dMQ = MtoQ.Length();
+			// Light's surface must face M: qN . (M - Q) > 0, i.e. qN . (Q - M) < 0.
+			if ((qN * MtoQ) >= 0) continue;
+
+			// Visibility P -> M (ignore the mirror itself and the surface we are on).
+			Ray rPM = Ray(p, M);
+			bool blocked = false;
+			for (int j = 0; j < sd->nSpheres && !blocked; j++) {
+				if (sd->spheres + j == self || j == m) continue;
+				if (rPM.intersects(sd->spheres[j], nullptr, &t) && t > 0.0001f && t < distPM - 0.001f) blocked = true;
+			}
+			for (int j = 0; j < sd->nTriangles && !blocked; j++) {
+				if (sd->triangles + j == self) continue;
+				if (rPM.intersects(sd->triangles[j], nullptr, &t) && t > 0.0001f && t < distPM - 0.001f) blocked = true;
+			}
+			if (blocked) continue;
+
+			// Visibility M -> Q (ignore the mirror itself).
+			Ray rMQ = Ray(M, Q);
+			bool occ = false;
+			for (int j = 0; j < sd->nSpheres && !occ; j++) {
+				if (j == m) continue;
+				if (rMQ.intersects(sd->spheres[j], nullptr, &t) && t > 0.0001f && t < dMQ - 0.001f) occ = true;
+			}
+			for (int j = 0; j < sd->nTriangles && !occ; j++) {
+				if (rMQ.intersects(sd->triangles[j], nullptr, &t) && t > 0.0001f && t < dMQ - 0.001f) occ = true;
+			}
+			if (occ) continue;
+
+			// Numerical Jacobian: nudge Q along two tangent directions, re-solve M, and measure
+			// how far the reflected direction (seen from P) fans out per unit light area.
+			Vector tg1 = qN % Vector(0, 1, 0);
+			if (tg1.Length() < 0.01f) tg1 = qN % Vector(1, 0, 0);
+			tg1.Normalize();
+			Vector tg2 = qN % tg1; tg2.Normalize();
+			float eps = rL * 0.01f + 1e-4f;
+
+			Point M1, M2;
+			if (!solveAlhazen(p, Q + tg1 * eps, cm, rho, M1, true, M)) continue;
+			if (!solveAlhazen(p, Q + tg2 * eps, cm, rho, M2, true, M)) continue;
+
+			Vector w0 = toM;        w0.Normalize();
+			Vector w1 = M1 - p;     w1.Normalize();
+			Vector w2 = M2 - p;     w2.Normalize();
+			float J = ((w1 - w0) % (w2 - w0)).Length() / (eps * eps);
+
+			ColorReal lightRad = sd->lights[k].mat.color.getColorIntesity(sd->gamma) * sd->lights[k].intenisty;
+
+			// (1/pi BRDF) * cosP * L * J * area(4*pi*rL^2)  ->  4*rL^2 after the pi's cancel.
+			total += mirrorCol * lightRad * (cosP * J * 4.0f * rL * rL);
+		}
+	}
+
+	return total;
+}
+
+
+__device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ray* newRay, ColorReal* predictedLight, int *hitType) {
 	float t1, nearest = INFINITY;
 	ColorReal colorMultiplier(1, 1, 1);
 	ColorReal colGet;
 	Point colPoint;
 	Vector colNormal;
 	GraphicsObject* colObj;
-	*predictRan = false;
+	*predictedLight = ColorReal(0, 0, 0);
 
 	for (int i = 0; i < sd->nSpheres; i++) {
 		if (ray.intersects(sd->spheres[i], &colGet, &t1, nullptr)) {
@@ -199,28 +405,34 @@ __device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ra
 	}
 
 	if (nearest == INFINITY) {
+		*hitType = HIT_SKY;
 		*newRay = Ray(Point(-INFINITY, -INFINITY, -INFINITY), Vector(0, 0, 0));
 		return sd->ambient.mat.color.getColorIntesity(sd->gamma) * sd->ambient.intenisty;
 	}
 	else if (colObj->shape == LIGHT) {
+		*hitType = HIT_LIGHT;
 		*newRay = Ray(Point(-INFINITY, -INFINITY, INFINITY), Vector(0, 0, 0));
 		return colorMultiplier;
 	}
 	else {
 		if (colObj->mat.mirror) {
+			*hitType = HIT_MIRROR;
 			*newRay = Ray(colPoint, ray.d.Reflect(colNormal));
 			return colorMultiplier;
 		}
 		else if (colObj->mat.transparent) {
+			*hitType = HIT_TRANSPARENT;
 			*newRay = Ray(colPoint, ray.d.Refract(colNormal, colObj->mat.refIndex));
 			return colorMultiplier;
 		}
 		else {
+			*hitType = HIT_DIFFUSE;
 			ray.o = colPoint;
 			if (ray.d * colNormal > 0) colNormal = -colNormal;
 			if (sd->useLightPredict) {
 				*predictedLight = getProbabilisticLight(colPoint, colNormal, colObj, sd, rng);
-				*predictRan = true;
+				if (sd->useMirrorPredict)
+					*predictedLight = *predictedLight + getMirrorLight(colPoint, colNormal, colObj, sd, rng);
 			}
 			do {
 				ray.d.x = next(rng) * 2 - 1.0f;
@@ -420,16 +632,19 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 	ColorReal newPixelColorNew;
 	ColorReal predictedLight = ColorReal(0, 0, 0);
 	ColorReal predictedLightNew = ColorReal(0, 0, 0);
-	bool predictRan, lastPredictRan = false;
+	int hitType;
+	bool lastPredictRan = false;
 	for (int i = 0; i <= sd->bounces; i++) {
 		if(i == sd->bounces){
 			newPixelColor = ColorReal(0, 0, 0);
 			break;
 		}
 
-		newPixelColorNew = traceRandIter(ray, sd, rng, &newRay, &predictedLightNew, &predictRan);
+		newPixelColorNew = traceRandIter(ray, sd, rng, &newRay, &predictedLightNew, &hitType);
 
-		if (sd->useLightPredict && lastPredictRan && newRay.o.z == INFINITY) {
+		// A light reached after a diffuse vertex was already counted by that vertex's NEE
+		// (direct light or, through a mirror bounce, its mirror NEE) -- drop the duplicate.
+		if (sd->useLightPredict && lastPredictRan && hitType == HIT_LIGHT) {
 			newPixelColor = ColorReal(0, 0, 0);
 		}
 		else {
@@ -439,7 +654,12 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		if (sd->useLightPredict) {
 			predictedLight += predictedLightNew * newPixelColor;   // now includes current albedo
 			predictedLightNew = ColorReal(0, 0, 0);
-			lastPredictRan = predictRan;
+			// A diffuse vertex arms suppression; glass clears it. A mirror passes it through
+			// ONLY when mirror NEE is on (it covered the reflected light); otherwise the mirror
+			// must clear it so the bounce path is still allowed to gather light through it.
+			if (hitType == HIT_DIFFUSE) lastPredictRan = true;
+			else if (hitType == HIT_TRANSPARENT) lastPredictRan = false;
+			else if (hitType == HIT_MIRROR && !sd->useMirrorPredict) lastPredictRan = false;
 		}
 
 		if (newRay.o.x == -INFINITY) break;
@@ -664,8 +884,8 @@ void DrawFrame()
 
 		timer = now;
 
-		printf("It %4d  %.2f it/s | Exp %.0f  Gamma %.3f  Bounces %d | Focal %.2f  DOF %.4f  FOV %.2f | LightPrefict %d          \r",
-			iteration, itps, sd.expMultiplier, sd.gamma, sd.bounces, sd.focalDistance, sd.dofStr, sd.camDist, sd.useLightPredict);
+		printf("It %4d  %.2f it/s | Exp %.0f  Gamma %.3f  Bounces %d | Focal %.2f  DOF %.4f  FOV %.2f | LightPredict %d  Mirror %d          \r",
+			iteration, itps, sd.expMultiplier, sd.gamma, sd.bounces, sd.focalDistance, sd.dofStr, sd.camDist, sd.useLightPredict, sd.useMirrorPredict);
 
 		// Copy output vector from GPU buffer to host memory.
 		cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);

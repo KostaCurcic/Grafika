@@ -194,6 +194,10 @@ void key(WPARAM wParam, LPARAM lParam) {
 	}
 	if(wParam == 'N') {
 		sd.useLightPredict = !sd.useLightPredict;
+		if (!sd.useLightPredict) sd.useMirrorPredict = false; // mirror NEE requires light NEE
+	}
+	if(wParam == 'M') { // mirror-caustic NEE; only meaningful while light predict (N) is on
+		if (sd.useLightPredict) sd.useMirrorPredict = !sd.useMirrorPredict;
 	}
 	InitFrame();
 }
