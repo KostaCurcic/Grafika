@@ -14,6 +14,7 @@ public:
 	bool reset = true;
 	bool realTime = true;
 	bool bilinearTexture = true;
+	bool useLightPredict = false;
 
 	float expMultiplier;
 	unsigned short bounces = 20;

@@ -192,6 +192,9 @@ void key(WPARAM wParam, LPARAM lParam) {
 	if (wParam == 0x39) { //9
 		sd.bounces -= 1;
 	}
+	if(wParam == 'N') {
+		sd.useLightPredict = !sd.useLightPredict;
+	}
 	InitFrame();
 }
 

@@ -6,6 +6,7 @@
 
 enum EShape
 {
+	UNKNOWN,
 	TRIANGLE,
 	SPHERE,
 	LIGHT

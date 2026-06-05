@@ -100,14 +100,50 @@ __device__ __forceinline__ float next(unsigned int& state) {
 	return ((w >> 22u) ^ w) * (1.0f / 4294967296.0f);  // output = hash of state
 }
 
+__device__ ColorReal getProbabilisticLight(Point& p, Vector n, GraphicsObject* self, SceneData* sd, unsigned int& rng) {
+	Ray ray;
+	float t;
+	ColorReal totalLight = ColorReal(0, 0, 0);
+	bool col;
+	for (int i = 0; i < sd->nLights; i++) {
+		Vector randVectorInLight = Vector(next(rng) * 2 - 1.0f, next(rng) * 2 - 1.0f, next(rng) * 2 - 1.0f).Normalize() * sd->lights[i].r;
+		ray = Ray(p, sd->lights[i].c + randVectorInLight);
 
-__device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ray* newRay) {
+		if (n * ray.d > 0) {
+			col = false;
+			for (int j = 0; j < sd->nSpheres; j++) {
+				if (sd->spheres + j != self && ray.intersects(sd->spheres[j], nullptr, &t) && t > 0.0001) {
+					col = true;
+					break;
+				}
+			}
+			if (!col) {
+				for (int j = 0; j < sd->nTriangles; j++) {
+					if (sd->triangles + j != self && ray.intersects(sd->triangles[j], nullptr, &t) && t > 0.0001) {
+						col = true;
+						break;
+					}
+				}
+			}
+			if (!col) {
+				float dist = Vector(sd->lights[i].c - p).Length();
+				totalLight += sd->lights[i].mat.color.getColorIntesity(sd->gamma) * ((abs(n * ray.d) * sd->lights[i].intenisty * (sd->lights[i].r * sd->lights[i].r * 3.1415f)) / (dist * dist));
+			}
+		}
+
+	}
+	return totalLight;
+}
+
+
+__device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ray* newRay, ColorReal* predictedLight, bool *predictRan) {
 	float t1, nearest = INFINITY;
 	ColorReal colorMultiplier(1, 1, 1);
 	ColorReal colGet;
 	Point colPoint;
 	Vector colNormal;
 	GraphicsObject* colObj;
+	*predictRan = false;
 
 	for (int i = 0; i < sd->nSpheres; i++) {
 		if (ray.intersects(sd->spheres[i], &colGet, &t1, nullptr)) {
@@ -150,7 +186,7 @@ __device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ra
 		return sd->ambient.mat.color.getColorIntesity(sd->gamma) * sd->ambient.intenisty;
 	}
 	else if (colObj->shape == LIGHT) {
-		*newRay = Ray(Point(-INFINITY, -INFINITY, -INFINITY), Vector(0, 0, 0));
+		*newRay = Ray(Point(-INFINITY, -INFINITY, INFINITY), Vector(0, 0, 0));
 		return colorMultiplier;
 	}
 	else {
@@ -165,6 +201,10 @@ __device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ra
 		else {
 			ray.o = colPoint;
 			if (ray.d * colNormal > 0) colNormal = -colNormal;
+			if (sd->useLightPredict) {
+				*predictedLight = getProbabilisticLight(colPoint, colNormal, colObj, sd, rng);
+				*predictRan = true;
+			}
 			do {
 				ray.d.x = next(rng) * 2 - 1.0f;
 				ray.d.y = next(rng) * 2 - 1.0f;
@@ -360,16 +400,35 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 #ifdef ITER
 	Ray newRay;
 	ColorReal newPixelColor = ColorReal(1, 1, 1);
+	ColorReal newPixelColorNew;
+	ColorReal predictedLight = ColorReal(0, 0, 0);
+	ColorReal predictedLightNew = ColorReal(0, 0, 0);
+	bool predictRan, lastPredictRan = false;
 	for (int i = 0; i <= sd->bounces; i++) {
 		if(i == sd->bounces){
 			newPixelColor = ColorReal(0, 0, 0);
 			break;
 		}
-		newPixelColor *= traceRandIter(ray, sd, rng, &newRay);
+
+		newPixelColorNew = traceRandIter(ray, sd, rng, &newRay, &predictedLightNew, &predictRan);
+
+		if (sd->useLightPredict && lastPredictRan && newRay.o.z == INFINITY) {
+			newPixelColor = ColorReal(0, 0, 0);
+		}
+		else {
+			newPixelColor *= newPixelColorNew;
+		}
+
+		if (sd->useLightPredict) {
+			predictedLight += predictedLightNew * newPixelColor;   // now includes current albedo
+			predictedLightNew = ColorReal(0, 0, 0);
+			lastPredictRan = predictRan;
+		}
+
 		if (newRay.o.x == -INFINITY) break;
 		ray = newRay;
 	}
-	*rm += newPixelColor;
+	*rm += newPixelColor + predictedLight;
 #else
 	* rm += traceRand(ray, sd, rng, sd->bounces);
 #endif // ITER
@@ -588,8 +647,8 @@ void DrawFrame()
 
 		timer = now;
 
-		printf("It %4d  %.2f it/s | Exp %.0f  Gamma %.3f  Bounces %d | Focal %.2f  DOF %.4f  FOV %.2f          \r",
-			iteration, itps, sd.expMultiplier, sd.gamma, sd.bounces, sd.focalDistance, sd.dofStr, sd.camDist);
+		printf("It %4d  %.2f it/s | Exp %.0f  Gamma %.3f  Bounces %d | Focal %.2f  DOF %.4f  FOV %.2f | LightPrefict %d          \r",
+			iteration, itps, sd.expMultiplier, sd.gamma, sd.bounces, sd.focalDistance, sd.dofStr, sd.camDist, sd.useLightPredict);
 
 		// Copy output vector from GPU buffer to host memory.
 		cudaStatus = cudaMemcpy(imgptr, devImgPtr, XRES * YRES * 3 * sizeof(char), cudaMemcpyDeviceToHost);
