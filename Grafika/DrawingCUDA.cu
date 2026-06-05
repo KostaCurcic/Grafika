@@ -106,10 +106,16 @@ __device__ ColorReal getProbabilisticLight(Point& p, Vector n, GraphicsObject* s
 	ColorReal totalLight = ColorReal(0, 0, 0);
 	bool col;
 	for (int i = 0; i < sd->nLights; i++) {
-		Vector randVectorInLight = Vector(next(rng) * 2 - 1.0f, next(rng) * 2 - 1.0f, next(rng) * 2 - 1.0f).Normalize() * sd->lights[i].r;
-		ray = Ray(p, sd->lights[i].c + randVectorInLight);
+		float r = sd->lights[i].r;
+		// Pick a random point on the surface of the light sphere. lightNormal is the
+		// unit direction from the light's center to that point, i.e. the light's own
+		// surface normal there.
+		Vector lightNormal = Vector(next(rng) * 2 - 1.0f, next(rng) * 2 - 1.0f, next(rng) * 2 - 1.0f).Normalize();
+		Point lightPoint = sd->lights[i].c + lightNormal * r;
+		ray = Ray(p, lightPoint);
 
-		if (n * ray.d > 0) {
+		float cosX = n * ray.d;   // how slanted the light arrives at our surface
+		if (cosX > 0) {
 			col = false;
 			for (int j = 0; j < sd->nSpheres; j++) {
 				if (sd->spheres + j != self && ray.intersects(sd->spheres[j], nullptr, &t) && t > 0.0001) {
@@ -126,8 +132,19 @@ __device__ ColorReal getProbabilisticLight(Point& p, Vector n, GraphicsObject* s
 				}
 			}
 			if (!col) {
-				float dist = Vector(sd->lights[i].c - p).Length();
-				totalLight += sd->lights[i].mat.color.getColorIntesity(sd->gamma) * ((abs(n * ray.d) * sd->lights[i].intenisty * (sd->lights[i].r * sd->lights[i].r * 3.1415f)) / (dist * dist));
+				// How the light's surface is angled toward us. Points on the far side of
+				// the sphere face away (cosY <= 0) and contribute nothing.
+				float cosY = -(lightNormal * ray.d);
+				if (cosY > 0) {
+					Vector toLight = lightPoint - p;
+					float dist2 = toLight * toLight;
+					// (1/pi) BRDF * cosX * cosY * area(4*pi*r^2) / dist^2; the pi's cancel
+					// to leave 4*r^2. The surface's own colour is applied later via the
+					// path throughput (newPixelColor), so it is not multiplied in here.
+					totalLight += sd->lights[i].mat.color.getColorIntesity(sd->gamma)
+						* sd->lights[i].intenisty
+						* (cosX * cosY * 4.0f * r * r / dist2);
+				}
 			}
 		}
 
