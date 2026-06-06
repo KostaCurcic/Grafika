@@ -3,6 +3,7 @@
 #include <gl\GL.h>
 #include <gl\GLU.h>
 #include <math.h>
+#include <string.h>
 #include "OpenGL3.1.h"
 
 #include "GLInit.h"
@@ -11,6 +12,13 @@
 
 GLuint tex;
 char *arr, *tarr;
+
+// Command-line startup flags, applied in initial() once the scene is loaded:
+//   -render / render / -r : boot into accumulation ("real render") mode (wavefront path tracer)
+//                           instead of the real-time preview, from the first frame.
+//   nee / -nee            : also enable light + mirror predictive lighting (NEE) at startup.
+bool gStartRender = false;
+bool gStartNee = false;
 
 void initial(WPARAM wParam, LPARAM lParam) {
 
@@ -34,6 +42,9 @@ void initial(WPARAM wParam, LPARAM lParam) {
 
 	SceneLoader sl;
 	sl.loadScene(R"(..\house.scene)", sd);
+
+	if (gStartRender) sd.realTime = false;
+	if (gStartNee) { sd.useLightPredict = true; sd.useMirrorPredict = true; }
 
 	InitDrawing(arr);
 
@@ -235,7 +246,16 @@ void draw(WPARAM wParam, LPARAM lParam) {
 }
 
 
-int main() {
+int main(int argc, char** argv) {
+
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "-render") == 0 || strcmp(argv[i], "render") == 0 || strcmp(argv[i], "-r") == 0)
+			gStartRender = true;
+		else if (strcmp(argv[i], "nee") == 0 || strcmp(argv[i], "-nee") == 0)
+			gStartNee = true;
+	}
+	if (gStartRender)
+		printf("Starting in accumulation (real render) mode%s.\n", gStartNee ? " with light + mirror NEE" : "");
 
 	printf(R"(
 RAY-TRACER
