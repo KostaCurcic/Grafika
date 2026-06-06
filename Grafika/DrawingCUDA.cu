@@ -50,6 +50,39 @@ Material *devMaterials;
 
 LARGE_INTEGER timer;
 
+// ---- Wavefront path tracer work items & queues --------------------------------------------
+// Instead of one megakernel running a whole path per pixel, the path is sliced into per-bounce
+// passes. A RayWork is one live path segment; its RNG state and running throughput ride along
+// so the path can be carried across many kernel launches. A NEEWork records a diffuse vertex
+// whose direct lighting (predictive light / mirror NEE) is computed later in its own kernel.
+// Ray/ColorReal/Point/Vector have no virtuals and are trivially copyable, so they are safe to
+// store in cudaMalloc'd buffers. NOTE: ColorReal's default ctor leaves r/g/b uninitialised, so
+// always assign throughput explicitly.
+struct RayWork {
+	Ray          ray;
+	ColorReal    throughput;
+	unsigned int rng;            // path RNG state, continued across passes
+	int          pixel;          // yi * XRES + xi  (accumulation target)
+	int          bounce;         // number of trace steps already done on this path
+	int          lastPredictRan; // the megakernel's dedup flag, carried per ray
+};
+
+struct NEEWork {
+	Point           p;          // diffuse hit point
+	Vector          n;          // surface normal, already flipped to face the incoming ray
+	GraphicsObject *self;       // device pointer into devSpheres/devTriangles, for self-exclusion
+	ColorReal       throughput; // throughput INCLUDING this vertex's albedo
+	unsigned int    seed;       // base RNG seed for the light-point sampling
+	int             pixel;
+};
+
+// Two ping-pong ray queues and one NEE queue, each sized for the worst case of one item per
+// pixel; allocated once in InitDrawing. devCounts[0] is the surviving-ray count, devCounts[1]
+// the NEE-item count -- both compacted with atomicAdd and cleared together each pass.
+RayWork *devQueue0 = nullptr, *devQueue1 = nullptr;
+NEEWork *devNeeQueue = nullptr;
+int *devCounts = nullptr;
+
 void InitFrame()
 {
 
@@ -375,14 +408,19 @@ __device__ ColorReal getMirrorLight(Point& p, Vector n, GraphicsObject* self, Sc
 #endif // USE_MIRROR_PREDICT
 
 
-__device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ray* newRay, ColorReal* predictedLight, int *hitType) {
+// One trace step for the wavefront path tracer: find the nearest hit, classify it, and plan the
+// continuation ray. This is the old traceRandIter with the inline NEE removed (predictive light
+// and mirror NEE now run in their own kernels) and the diffuse hit point / flipped normal / hit
+// object exposed, so the trace kernel can record a NEE work item. Everything else -- intersection,
+// hit classification, cosine-weighted bounce -- is identical to the megakernel.
+__device__ ColorReal traceWavefront(Ray ray, SceneData* sd, unsigned int& rng, Ray* newRay, int* hitType,
+                                    Point* hitP, Vector* hitN, GraphicsObject** hitObj) {
 	float t1, nearest = INFINITY;
 	ColorReal colorMultiplier(1, 1, 1);
 	ColorReal colGet;
 	Point colPoint;
 	Vector colNormal;
 	GraphicsObject* colObj;
-	*predictedLight = ColorReal(0, 0, 0);
 
 	for (int i = 0; i < sd->nSpheres; i++) {
 		if (ray.intersects(sd->spheres[i], &colGet, &t1, nullptr)) {
@@ -445,15 +483,6 @@ __device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ra
 			*hitType = HIT_DIFFUSE;
 			ray.o = colPoint;
 			if (ray.d * colNormal > 0) colNormal = -colNormal;
-#ifdef USE_LIGHT_PREDICT
-			if (sd->useLightPredict) {
-				*predictedLight = getProbabilisticLight(colPoint, colNormal, colObj, sd, rng);
-#ifdef USE_MIRROR_PREDICT
-				if (sd->useMirrorPredict)
-					*predictedLight = *predictedLight + getMirrorLight(colPoint, colNormal, colObj, sd, rng);
-#endif
-			}
-#endif
 			do {
 				ray.d.x = next(rng) * 2 - 1.0f;
 				ray.d.y = next(rng) * 2 - 1.0f;
@@ -462,6 +491,11 @@ __device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ra
 				if (ray.d * colNormal <= 0) ray.d = -ray.d;
 			} while (ray.d * colNormal <= next(rng));
 			*newRay = ray;
+			// Hand the diffuse vertex back so the trace kernel can queue its NEE work. The normal
+			// is already flipped to face the incoming ray, which is what the NEE samplers expect.
+			*hitP = colPoint;
+			*hitN = colNormal;
+			*hitObj = colObj;
 			return colorMultiplier;
 		}
 	}
@@ -597,28 +631,32 @@ __device__ bool findColPoint(Ray ray, Point *colPoint, Vector *colNormal, Graphi
 	return false;
 }
 
-__global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int iter) {
+// Add a ColorReal into the float accumulation buffer at base[0..2]. Within one frame each pixel
+// is written by at most one thread per pass and the passes run serially, so this is effectively
+// uncontended -- the atomics are insurance against any future overlapping work.
+__device__ __forceinline__ void atomicAddColor(float* base, const ColorReal& c) {
+	atomicAdd(base + 0, c.r);
+	atomicAdd(base + 1, c.g);
+	atomicAdd(base + 2, c.b);
+}
+
+// Pass 1: one thread per pixel. Build the primary camera ray (AA jitter + optional DOF, exactly
+// as the old megakernel) and write it densely into the first ray queue. The per-pixel seed and
+// the order of next() draws match the megakernel bit for bit, so primary rays are identical.
+__global__ void genPrimaryKernel(RayWork* qOut, SceneData* sd, int iter) {
 	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
 	int yi = blockIdx.y * THRCOUNT + threadIdx.y;
 
-	unsigned int rng = pcg_hash((xi * XRES + yi + 3) ^ pcg_hash(iter));
-
 	if (xi > XRES || yi > YRES) return;
+
+	unsigned int rng = pcg_hash((xi * XRES + yi + 3) ^ pcg_hash(iter));
 
 	float x = (xi * 2.0f + next(rng) * 2.0f) / YRES - XRES / (float)YRES;
 	float y = (yi * 2.0f + next(rng) * 2.0f) / YRES - 1.0;
 
-	Color *pix = (Color*)(ptr + (yi * XRES + xi) * 3);
-	ColorReal *rm = (ColorReal*)(realMap + (yi * XRES + xi) * 3);
-
-	//Point pixelPoint = Point(10 + x, y, 0);
-
 	Point pixelPoint = sd->camera + sd->c2S + sd->sR * x + sd->sD * y;
 
 	float focalDistance = sd->focalDistance;
-
-	Vector normal;
-	GraphicsObject *obj = nullptr;
 
 	Ray ray = Ray(sd->camera, pixelPoint);
 
@@ -632,78 +670,142 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		pointMove *= next(rng);
 		xOff = sinf(ang) * sqrtf(pointMove);
 		yOff = cosf(ang) * sqrtf(pointMove);
-		/*do {
-			xOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
-			yOff = (curand_uniform(state + ((xi * 100 + yi) % RANDGENS)) * 2 - 1.0f) * pointMove;
-		} while (sqrtf(xOff * xOff + yOff * yOff) > pointMove);*/
 		Point passPoint = pixelPoint + sd->sR * xOff + sd->sD * yOff;
 		ray = Ray(passPoint, focalPoint);
 		ray.o = ray.getPointFromT(-pointBack);
 	}
 
-	float light;
-	float ra, c1, c2, c3;
+	int pixel = yi * XRES + xi;
+	RayWork w;
+	w.ray = ray;
+	w.throughput = ColorReal(1, 1, 1);
+	w.rng = rng;
+	w.pixel = pixel;
+	w.bounce = 0;
+	w.lastPredictRan = 0;
+	qOut[pixel] = w;            // dense: one ray per pixel, no compaction needed
+}
 
-	Point colPoint;
+// Pass 2 (looped per bounce): one thread per queued ray. Trace one step, accumulate terminal
+// emission for paths that reached sky/light, record diffuse vertices for the NEE kernels, and
+// scatter the continuation ray into qOut. Survivor and NEE slots are claimed with atomicAdd so
+// both queues stay compact. The accumulation mirrors the old megakernel's bounce loop exactly.
+__global__ void traceKernel(RayWork* qIn, int inCount, RayWork* qOut, int* rayCount,
+                            NEEWork* neeQ, int* neeCount, float* realMap, SceneData* sd) {
+	int tid = blockIdx.x * blockDim.x + threadIdx.x;
+	if (tid >= inCount) return;
 
-#ifdef ITER
+	RayWork w = qIn[tid];
+	if (w.bounce >= sd->bounces) return;   // ran out of budget: throughput is discarded
+
+	unsigned int base = w.rng;             // NEE seed snapshot, before the bounce advances rng
+	unsigned int rng = w.rng;
+
 	Ray newRay;
-	ColorReal newPixelColor = ColorReal(1, 1, 1);
-	ColorReal newPixelColorNew;
-	ColorReal predictedLight = ColorReal(0, 0, 0);
-	ColorReal predictedLightNew = ColorReal(0, 0, 0);
 	int hitType;
-	bool lastPredictRan = false;
-	for (int i = 0; i <= sd->bounces; i++) {
-		if(i == sd->bounces){
-			newPixelColor = ColorReal(0, 0, 0);
-			break;
-		}
+	Point hitP;
+	Vector hitN;
+	GraphicsObject* hitObj;
 
-		newPixelColorNew = traceRandIter(ray, sd, rng, &newRay, &predictedLightNew, &hitType);
+	ColorReal albedo = traceWavefront(w.ray, sd, rng, &newRay, &hitType, &hitP, &hitN, &hitObj);
+
+	if (hitType == HIT_SKY) {
+		atomicAddColor(realMap + w.pixel * 3, w.throughput * albedo);   // sky emission, never suppressed
+		return;
+	}
+	if (hitType == HIT_LIGHT) {
+#ifdef USE_LIGHT_PREDICT
+		// A light reached after a diffuse vertex was already counted by that vertex's NEE.
+		if (sd->useLightPredict && w.lastPredictRan) return;
+#endif
+		atomicAddColor(realMap + w.pixel * 3, w.throughput * albedo);
+		return;
+	}
+
+	// Surface hit: fold in the albedo, queue NEE for diffuse vertices, and continue the path.
+	ColorReal newThr = w.throughput * albedo;
+
+	int nextFlag = 0;
+#ifdef USE_LIGHT_PREDICT
+	if (sd->useLightPredict) {
+		if (hitType == HIT_DIFFUSE) {
+			int slot = atomicAdd(neeCount, 1);
+			NEEWork nw;
+			nw.p = hitP;
+			nw.n = hitN;
+			nw.self = hitObj;
+			nw.throughput = newThr;     // throughput INCLUDING this vertex's albedo
+			nw.seed = base;
+			nw.pixel = w.pixel;
+			neeQ[slot] = nw;
+			nextFlag = 1;               // a diffuse vertex arms suppression
+		}
+		else if (hitType == HIT_TRANSPARENT) nextFlag = 0;   // glass clears it
+		else if (hitType == HIT_MIRROR) {
+			// A mirror passes the flag through ONLY while mirror NEE actually covered the
+			// reflected light; otherwise it must clear so the bounce path still gathers it.
+#ifdef USE_MIRROR_PREDICT
+			nextFlag = sd->useMirrorPredict ? w.lastPredictRan : 0;
+#else
+			nextFlag = 0;
+#endif
+		}
+	}
+#endif
+
+	if (w.bounce + 1 < sd->bounces) {       // strict <: the last bounce makes no new ray
+		int slot = atomicAdd(rayCount, 1);
+		RayWork nw;
+		nw.ray = newRay;
+		nw.throughput = newThr;
+		nw.rng = rng;
+		nw.pixel = w.pixel;
+		nw.bounce = w.bounce + 1;
+		nw.lastPredictRan = nextFlag;
+		qOut[slot] = nw;
+	}
+}
 
 #ifdef USE_LIGHT_PREDICT
-		// A light reached after a diffuse vertex was already counted by that vertex's NEE
-		// (direct light or, through a mirror bounce, its mirror NEE) -- drop the duplicate.
-		if (sd->useLightPredict && lastPredictRan && hitType == HIT_LIGHT) {
-			newPixelColor = ColorReal(0, 0, 0);
-		}
-		else {
-			newPixelColor *= newPixelColorNew;
-		}
+// Predictive lighting kernel: one thread per recorded diffuse vertex. Estimate direct light and
+// add it, weighted by the throughput captured at that vertex. Reuses getProbabilisticLight as-is.
+__global__ void neeLightKernel(NEEWork* q, int* neeCount, float* realMap, SceneData* sd) {
+	int tid = blockIdx.x * blockDim.x + threadIdx.x;
+	if (tid >= *neeCount) return;
 
-		if (sd->useLightPredict) {
-			predictedLight += predictedLightNew * newPixelColor;   // now includes current albedo
-			predictedLightNew = ColorReal(0, 0, 0);
-			// A diffuse vertex arms suppression; glass clears it.
-			if (hitType == HIT_DIFFUSE) lastPredictRan = true;
-			else if (hitType == HIT_TRANSPARENT) lastPredictRan = false;
-			else if (hitType == HIT_MIRROR) {
-				// A mirror passes the flag through ONLY while mirror NEE actually covered the
-				// reflected light; otherwise it must clear so the bounce path still gathers it.
+	NEEWork w = q[tid];
+	unsigned int s = pcg_hash(w.seed ^ 0xA511E9B3u);   // own stream, decorrelated from the bounce
+	ColorReal light = getProbabilisticLight(w.p, w.n, w.self, sd, s);
+	atomicAddColor(realMap + w.pixel * 3, light * w.throughput);
+}
+#endif
+
 #ifdef USE_MIRROR_PREDICT
-				if (!sd->useMirrorPredict) lastPredictRan = false;
-#else
-				lastPredictRan = false;
+// Mirror-caustic NEE kernel: one thread per diffuse vertex. The heavy Alhazen solver lives here,
+// isolated from the trace kernel so its register pressure never lowers the main pass's occupancy.
+__global__ void neeMirrorKernel(NEEWork* q, int* neeCount, float* realMap, SceneData* sd) {
+	int tid = blockIdx.x * blockDim.x + threadIdx.x;
+	if (tid >= *neeCount) return;
+
+	NEEWork w = q[tid];
+	unsigned int s = pcg_hash(w.seed ^ 0x1B56C4F7u);   // own stream, decorrelated from light NEE
+	ColorReal light = getMirrorLight(w.p, w.n, w.self, sd, s);
+	atomicAddColor(realMap + w.pixel * 3, light * w.throughput);
+}
 #endif
-			}
-		}
-#else
-		newPixelColor *= newPixelColorNew;
-#endif
 
-		if (newRay.o.x == -INFINITY) break;
-		ray = newRay;
-	}
-	*rm += newPixelColor + predictedLight;
-#else
-	* rm += traceRand(ray, sd, rng, sd->bounces);
-#endif // ITER
+// Final pass: one thread per pixel. Tone-map the float accumulation buffer into the 8-bit display
+// buffer, exactly as the old megakernel's tail did (exposure = expMultiplier / iter).
+__global__ void resolveKernel(float* realMap, char* ptr, SceneData* sd, int iter) {
+	int xi = blockIdx.x * THRCOUNT + threadIdx.x;
+	int yi = blockIdx.y * THRCOUNT + threadIdx.y;
 
+	if (xi > XRES || yi > YRES) return;
 
+	int pixel = yi * XRES + xi;
+	Color *pix = (Color*)(ptr + pixel * 3);
+	ColorReal *rm = (ColorReal*)(realMap + pixel * 3);
 	*pix = rm->getPixColorDesat(sd->gamma, sd->expMultiplier / iter);
-
-	return;
 }
 
 __device__ float pointLit(Point &p, Vector n, GraphicsObject* self, SceneData *sd) {
@@ -844,6 +946,33 @@ void InitDrawing(char * ptr)
 		return;
 	}
 
+	// Wavefront work queues: two ping-pong ray queues, one NEE queue, and a 2-int counter block
+	// ([0] = surviving rays, [1] = NEE items). Each queue holds the worst case of one item per
+	// pixel. These persist for the program's life, like the scene buffers above.
+	cudaStatus = cudaMalloc((void**)&devQueue0, XRES * YRES * sizeof(RayWork));
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc failed!");
+		return;
+	}
+
+	cudaStatus = cudaMalloc((void**)&devQueue1, XRES * YRES * sizeof(RayWork));
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc failed!");
+		return;
+	}
+
+	cudaStatus = cudaMalloc((void**)&devNeeQueue, XRES * YRES * sizeof(NEEWork));
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc failed!");
+		return;
+	}
+
+	cudaStatus = cudaMalloc((void**)&devCounts, 2 * sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		printf("cudaMalloc failed!");
+		return;
+	}
+
 	InitFrame();
 
 }
@@ -887,7 +1016,49 @@ void DrawFrame()
 
 		cudaError_t cudaStatus;
 
-		drawPixelCUDAR << <blocks, thrds >> > (devImgPtr, realImg, devSd, iteration);
+		const int blk = 128;
+
+		// Pass 1: one primary ray per pixel, written densely into queue 0 (count = XRES*YRES).
+		genPrimaryKernel << <blocks, thrds >> > (devQueue0, devSd, iteration);
+
+		RayWork *qIn = devQueue0, *qOut = devQueue1;
+		int inCount = XRES * YRES;
+
+		// Bounce passes: trace the queue, scatter survivors into the next queue and diffuse
+		// vertices into the NEE queue, run the NEE kernels, then ping-pong the queues. Stop when
+		// no ray survives or the bounce budget is spent (same budget as the old loop).
+		for (int pass = 0; pass < sd.bounces && inCount > 0; pass++) {
+			cudaMemset(devCounts, 0, 2 * sizeof(int));   // [0] surviving rays, [1] NEE items
+
+			int tblocks = (inCount + blk - 1) / blk;
+			traceKernel << <tblocks, blk >> > (qIn, inCount, qOut, devCounts, devNeeQueue, devCounts + 1, realImg, devSd);
+
+#ifdef USE_LIGHT_PREDICT
+			// The NEE count (devCounts[1]) is bounded by inCount, so size these grids by inCount
+			// and let threads past the real count early-out against the device-side counter --
+			// this avoids a second read-back per pass.
+			if (sd.useLightPredict) {
+				neeLightKernel << <tblocks, blk >> > (devNeeQueue, devCounts + 1, realImg, devSd);
+#ifdef USE_MIRROR_PREDICT
+				if (sd.useMirrorPredict)
+					neeMirrorKernel << <tblocks, blk >> > (devNeeQueue, devCounts + 1, realImg, devSd);
+#endif
+			}
+#endif
+
+			// Read the survivor count back to drive the loop and size the next pass. This blocking
+			// copy is also the per-pass sync point (all launches above run on the default stream).
+			cudaStatus = cudaMemcpy(&inCount, devCounts, sizeof(int), cudaMemcpyDeviceToHost);
+			if (cudaStatus != cudaSuccess) {
+				printf("cudaMemcpy (ray count) failed!");
+				return;
+			}
+
+			RayWork *tmp = qIn; qIn = qOut; qOut = tmp;
+		}
+
+		// Final pass: tone-map the float accumulation buffer into the 8-bit display buffer.
+		resolveKernel << <blocks, thrds >> > (realImg, devImgPtr, devSd, iteration);
 
 		cudaStatus = cudaGetLastError();
 		if (cudaStatus != cudaSuccess) {
