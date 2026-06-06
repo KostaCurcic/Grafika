@@ -19,6 +19,18 @@
 
 #define ITER
 
+// ---- Build-time feature switches ----------------------------------------------------------
+// Comment a line out to compile that feature OUT of the kernel entirely. Unlike the runtime
+// N / M toggles (which keep the code resident and paying register/occupancy cost even when
+// switched off), an #ifdef'd-out feature contributes zero registers -- so disabling it here
+// gives back full render speed. USE_MIRROR_PREDICT requires USE_LIGHT_PREDICT.
+#define USE_LIGHT_PREDICT
+#define USE_MIRROR_PREDICT
+
+#if defined(USE_MIRROR_PREDICT) && !defined(USE_LIGHT_PREDICT)
+#error "USE_MIRROR_PREDICT requires USE_LIGHT_PREDICT (mirror NEE builds on light NEE)"
+#endif
+
 float angle = 0;
 
 char *imgptr, *devImgPtr;
@@ -100,6 +112,7 @@ __device__ __forceinline__ float next(unsigned int& state) {
 	return ((w >> 22u) ^ w) * (1.0f / 4294967296.0f);  // output = hash of state
 }
 
+#ifdef USE_LIGHT_PREDICT
 __device__ ColorReal getProbabilisticLight(Point& p, Vector n, GraphicsObject* self, SceneData* sd, unsigned int& rng) {
 	Ray ray;
 	float t;
@@ -151,6 +164,7 @@ __device__ ColorReal getProbabilisticLight(Point& p, Vector n, GraphicsObject* s
 	}
 	return totalLight;
 }
+#endif // USE_LIGHT_PREDICT
 
 // What kind of surface a trace step landed on. Used by the accumulation loop to decide
 // double-count suppression: a light reached through a mirror was already accounted for by
@@ -161,6 +175,7 @@ __device__ ColorReal getProbabilisticLight(Point& p, Vector n, GraphicsObject* s
 #define HIT_LIGHT       3
 #define HIT_SKY         4
 
+#ifdef USE_MIRROR_PREDICT
 // ---- Exact mirror NEE (Alhazen's problem) -------------------------------------------------
 // Given a diffuse point P and a point Q on a light, we want the point M on a mirror sphere
 // where the ray P->M reflects exactly toward Q. The reflection point always lies in the plane
@@ -357,6 +372,7 @@ __device__ ColorReal getMirrorLight(Point& p, Vector n, GraphicsObject* self, Sc
 
 	return total;
 }
+#endif // USE_MIRROR_PREDICT
 
 
 __device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ray* newRay, ColorReal* predictedLight, int *hitType) {
@@ -429,11 +445,15 @@ __device__ ColorReal traceRandIter(Ray ray, SceneData* sd, unsigned int& rng, Ra
 			*hitType = HIT_DIFFUSE;
 			ray.o = colPoint;
 			if (ray.d * colNormal > 0) colNormal = -colNormal;
+#ifdef USE_LIGHT_PREDICT
 			if (sd->useLightPredict) {
 				*predictedLight = getProbabilisticLight(colPoint, colNormal, colObj, sd, rng);
+#ifdef USE_MIRROR_PREDICT
 				if (sd->useMirrorPredict)
 					*predictedLight = *predictedLight + getMirrorLight(colPoint, colNormal, colObj, sd, rng);
+#endif
 			}
+#endif
 			do {
 				ray.d.x = next(rng) * 2 - 1.0f;
 				ray.d.y = next(rng) * 2 - 1.0f;
@@ -642,6 +662,7 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 
 		newPixelColorNew = traceRandIter(ray, sd, rng, &newRay, &predictedLightNew, &hitType);
 
+#ifdef USE_LIGHT_PREDICT
 		// A light reached after a diffuse vertex was already counted by that vertex's NEE
 		// (direct light or, through a mirror bounce, its mirror NEE) -- drop the duplicate.
 		if (sd->useLightPredict && lastPredictRan && hitType == HIT_LIGHT) {
@@ -654,13 +675,22 @@ __global__ void drawPixelCUDAR(char* ptr, float* realMap, SceneData *sd, int ite
 		if (sd->useLightPredict) {
 			predictedLight += predictedLightNew * newPixelColor;   // now includes current albedo
 			predictedLightNew = ColorReal(0, 0, 0);
-			// A diffuse vertex arms suppression; glass clears it. A mirror passes it through
-			// ONLY when mirror NEE is on (it covered the reflected light); otherwise the mirror
-			// must clear it so the bounce path is still allowed to gather light through it.
+			// A diffuse vertex arms suppression; glass clears it.
 			if (hitType == HIT_DIFFUSE) lastPredictRan = true;
 			else if (hitType == HIT_TRANSPARENT) lastPredictRan = false;
-			else if (hitType == HIT_MIRROR && !sd->useMirrorPredict) lastPredictRan = false;
+			else if (hitType == HIT_MIRROR) {
+				// A mirror passes the flag through ONLY while mirror NEE actually covered the
+				// reflected light; otherwise it must clear so the bounce path still gathers it.
+#ifdef USE_MIRROR_PREDICT
+				if (!sd->useMirrorPredict) lastPredictRan = false;
+#else
+				lastPredictRan = false;
+#endif
+			}
 		}
+#else
+		newPixelColor *= newPixelColorNew;
+#endif
 
 		if (newRay.o.x == -INFINITY) break;
 		ray = newRay;
